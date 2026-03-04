@@ -74,14 +74,16 @@ class SidebarViewPane extends ViewPane {
 
 	protected override renderBody(parent: HTMLElement): void {
 		super.renderBody(parent);
-		// parent.style.overflow = 'auto'
 		parent.style.userSelect = 'text'
 
-		// gets set immediately
 		this.instantiationService.invokeFunction(accessor => {
-			// mount react
-			const disposeFn: (() => void) | undefined = mountSidebar(parent, accessor)?.dispose;
-			this._register(toDisposable(() => disposeFn?.()))
+			try {
+				const disposeFn: (() => void) | undefined = mountSidebar(parent, accessor)?.dispose;
+				this._register(toDisposable(() => disposeFn?.()))
+			} catch (error) {
+				console.error('Void sidebar mount failed', error);
+				parent.textContent = 'Acad: falha ao renderizar.';
+			}
 		});
 	}
 
@@ -108,7 +110,7 @@ export const VOID_VIEW_ID = VOID_VIEW_CONTAINER_ID
 const viewContainerRegistry = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry);
 const container = viewContainerRegistry.registerViewContainer({
 	id: VOID_VIEW_CONTAINER_ID,
-	title: nls.localize2('voidContainer', 'Chat'), // this is used to say "Void" (Ctrl + L)
+	title: nls.localize2('voidContainer', 'Assistente'), // this is used to say "Acad" (Ctrl + L)
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [VOID_VIEW_CONTAINER_ID, {
 		mergeViewWithContainerWhenSingleView: true,
 		orientation: Orientation.HORIZONTAL,
@@ -154,7 +156,7 @@ registerAction2(class extends Action2 {
 	constructor() {
 		super({
 			id: VOID_OPEN_SIDEBAR_ACTION_ID,
-			title: 'Open Void Sidebar',
+			title: 'Abrir Assistente Acad',
 		})
 	}
 	run(accessor: ServicesAccessor): void {

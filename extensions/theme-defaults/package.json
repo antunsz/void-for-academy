@@ -26,6 +26,12 @@
         "path": "./themes/dark_modern.json"
       },
       {
+        "id": "Acad Dark",
+        "label": "%acadDarkThemeLabel%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/acad_dark.json"
+      },
+      {
         "id": "Default Light+",
         "label": "%lightPlusColorThemeLabel%",
         "uiTheme": "vs",

@@ -16,12 +16,32 @@ export const mountFnGenerator = (Component: (params: any) => React.ReactNode) =>
 		return
 	}
 
-	const disposables = _registerServices(accessor)
+	let disposables: { dispose: () => void }[] = []
+	try {
+		disposables = _registerServices(accessor)
+	} catch (error) {
+		console.error('Void services initialization failed', error)
+		rootElement.textContent = 'Acad: falha ao inicializar serviços.'
+		return
+	}
 
-	const root = ReactDOM.createRoot(rootElement)
+	let root: ReactDOM.Root
+	try {
+		root = ReactDOM.createRoot(rootElement)
+	} catch (error) {
+		console.error('Void createRoot failed', error)
+		rootElement.textContent = 'Acad: falha ao inicializar UI.'
+		disposables.forEach(d => d.dispose())
+		return
+	}
 
 	const rerender = (props?: any) => {
-		root.render(<Component {...props} />); // tailwind dark theme indicator
+		try {
+			root.render(<Component {...props} />)
+		} catch (error) {
+			console.error('Void render failed', error)
+			rootElement.textContent = 'Acad: falha ao renderizar.'
+		}
 	}
 	const dispose = () => {
 		root.unmount();

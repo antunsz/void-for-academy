@@ -1,0 +1,59 @@
+ABNT NBR 14724 - Informação e documentação - Trabalhos acadêmicos - Apresentação
+
+RESUMO DAS PRINCIPAIS REGRAS:
+
+1. ESTRUTURA DO TRABALHO ACADÊMICO
+
+1.1 Elementos pré-textuais (obrigatórios e opcionais):
+- Capa (obrigatório): nome da instituição, autor, título, subtítulo, local, ano
+- Folha de rosto (obrigatório): mesmos dados da capa + natureza do trabalho, orientador
+- Errata (opcional)
+- Folha de aprovação (obrigatório)
+- Dedicatória (opcional)
+- Agradecimentos (opcional)
+- Epígrafe (opcional)
+- Resumo na língua vernácula (obrigatório): máximo 500 palavras, palavras-chave
+- Resumo em língua estrangeira (obrigatório): abstract com keywords
+- Lista de ilustrações (opcional)
+- Lista de tabelas (opcional)
+- Lista de abreviaturas e siglas (opcional)
+- Lista de símbolos (opcional)
+- Sumário (obrigatório)
+
+1.2 Elementos textuais:
+- Introdução: tema, problema, objetivos, justificativa, estrutura do trabalho
+- Desenvolvimento: revisão bibliográfica, metodologia, resultados, discussão
+- Conclusão: retomada dos objetivos, principais resultados, contribuições, sugestões
+
+1.3 Elementos pós-textuais:
+- Referências (obrigatório)
+- Glossário (opcional)
+- Apêndice (opcional): documentos do próprio autor
+- Anexo (opcional): documentos de terceiros
+- Índice (opcional)
+
+2. FORMATAÇÃO
+
+2.1 Papel e margens:
+- Papel A4 (21 cm × 29,7 cm)
+- Margens: superior e esquerda 3 cm; inferior e direita 2 cm
+
+2.2 Fonte:
+- Tamanho 12 para todo o texto
+- Tamanho 10 para: citações longas, notas de rodapé, paginação, legendas, fontes de tabelas
+
+2.3 Espaçamento:
+- 1,5 entre linhas no texto
+- Simples para: citações longas (mais de 3 linhas), notas de rodapé, referências, legendas, natureza do trabalho
+- Títulos de seções: separados do texto por um espaço de 1,5
+
+2.4 Paginação:
+- Todas as folhas contadas a partir da folha de rosto
+- Numeração aparece a partir da primeira folha textual (introdução)
+- Números arábicos, canto superior direito
+
+2.5 Numeração progressiva das seções:
+- Seção primária: 1 TÍTULO (em maiúsculas e negrito)
+- Seção secundária: 1.1 Título
+- Seção terciária: 1.1.1 Título
+- Até cinco níveis de seção

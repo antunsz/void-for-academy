@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'; // Added useRef import just in case it was missed, though likely already present
-import { ProviderName, SettingName, displayInfoOfSettingName, providerNames, VoidStatefulModelInfo, customSettingNamesOfProvider, RefreshableProviderName, refreshableProviderNames, displayInfoOfProviderName, nonlocalProviderNames, localProviderNames, GlobalSettingName, featureNames, displayInfoOfFeatureName, isProviderNameDisabled, FeatureName, hasDownloadButtonsOnModelsProviderNames, subTextMdOfProviderName } from '../../../../common/voidSettingsTypes.js'
+import { ProviderName, SettingName, displayInfoOfSettingName, providerNames, VoidStatefulModelInfo, customSettingNamesOfProvider, RefreshableProviderName, refreshableProviderNames, displayInfoOfProviderName, nonlocalProviderNames, localProviderNames, GlobalSettingName, featureNames, displayInfoOfFeatureName, isProviderNameDisabled, FeatureName, hasDownloadButtonsOnModelsProviderNames, subTextMdOfProviderName, acadAgentEntities, AcadEntityInfo, AgentModelSelection } from '../../../../common/voidSettingsTypes.js'
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js'
 import { VoidButtonBgDarken, VoidCustomDropdownBox, VoidInputBox2, VoidSimpleInputBox, VoidSwitch } from '../util/inputs.js'
 import { useAccessor, useIsDark, useIsOptedOut, useRefreshModelListener, useRefreshModelState, useSettingsState } from '../util/services.js'
@@ -29,6 +29,7 @@ type Tab =
 	| 'localProviders'
 	| 'providers'
 	| 'featureOptions'
+	| 'acad'
 	| 'mcp'
 	| 'general'
 	| 'all';
@@ -321,10 +322,10 @@ const SimpleModelSettingsDialog = ({
 
 				{/* Display model recognition status */}
 				<div className="text-sm text-void-fg-3 mb-4">
-					{type === 'default' ? `${modelName} comes packaged with Void, so you shouldn't need to change these settings.`
-						: isUnrecognizedModel
-							? `Model not recognized by Void.`
-							: `Void recognizes ${modelName} ("${recognizedModelName}").`}
+				{type === 'default' ? `${modelName} vem pré-configurado no Acad.`
+					: isUnrecognizedModel
+						? `Modelo não reconhecido pelo Acad.`
+						: `Acad reconhece ${modelName} ("${recognizedModelName}").`}
 				</div>
 
 
@@ -831,7 +832,7 @@ export const OllamaSetupInstructions = ({ sayWeAutoDetect }: { sayWeAutoDetect?:
 		>
 			<ChatMarkdownRender string={`3. Run \`ollama pull your_model\` to install a model.`} chatMessageLocation={undefined} />
 		</div>
-		{sayWeAutoDetect && <div className=' pl-6'><ChatMarkdownRender string={`Void automatically detects locally running models and enables them.`} chatMessageLocation={undefined} /></div>}
+		{sayWeAutoDetect && <div className=' pl-6'><ChatMarkdownRender string={`O Acad detecta automaticamente modelos locais e os habilita.`} chatMessageLocation={undefined} /></div>}
 	</div>
 }
 
@@ -1029,20 +1030,106 @@ const MCPServersList = () => {
 	return <div className="my-2">{content}</div>
 };
 
+// Agent model configuration component
+const AgentModelCard = ({ agent }: { agent: AcadEntityInfo }) => {
+	const accessor = useAccessor()
+	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const settingsState = useSettingsState()
+	const modelOptions = settingsState._modelOptions
+
+	const currentSelection = settingsState.globalSettings.agentModelSelections?.[agent.id] ?? null
+
+	const selectedOption = currentSelection
+		? modelOptions.find(o => o.selection.modelName === currentSelection.modelId && o.selection.providerName === currentSelection.provider) ?? null
+		: null
+
+	const onChangeOption = useCallback((option: typeof modelOptions[number]) => {
+		const sel: AgentModelSelection = {
+			provider: option.selection.providerName,
+			modelId: option.selection.modelName,
+		}
+		voidSettingsService.setAgentModelSelection(agent.id, sel)
+
+		const backendUrl = settingsState.globalSettings.agnoBackendUrl || 'http://127.0.0.1:7777'
+		fetch(`${backendUrl}/api/agents/${agent.id}/model`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(sel),
+		}).catch(() => { /* silently fail if backend is not running */ })
+	}, [voidSettingsService, agent.id, settingsState.globalSettings.agnoBackendUrl])
+
+	const clearSelection = useCallback(() => {
+		voidSettingsService.setAgentModelSelection(agent.id, null)
+	}, [voidSettingsService, agent.id])
+
+	return (
+		<div className="border border-void-border-2 bg-void-bg-1 py-3 px-4 rounded-sm my-2">
+			<div className="flex items-center justify-between mb-1">
+				<div className="flex items-center gap-2">
+					<div className="w-2 h-2 rounded-full bg-[#0e70c0]" />
+					<span className="text-sm font-medium text-void-fg-1">{agent.name}</span>
+				</div>
+			</div>
+			<div className="text-xs text-void-fg-3 mb-2">{agent.role}</div>
+			<div className="flex items-center gap-2">
+				{modelOptions.length > 0 ? (
+					<VoidCustomDropdownBox
+						options={modelOptions}
+						selectedOption={selectedOption ?? modelOptions[0]}
+						onChangeOption={onChangeOption}
+						getOptionDisplayName={(option) => option.selection.modelName}
+						getOptionDropdownName={(option) => option.selection.modelName}
+						getOptionDropdownDetail={(option) => option.selection.providerName}
+						getOptionsEqual={(a, b) => a.selection.modelName === b.selection.modelName && a.selection.providerName === b.selection.providerName}
+						className='text-xs text-void-fg-3 bg-void-bg-2 border border-void-border-1 rounded p-0.5 px-1 flex-1'
+						matchInputWidth={false}
+					/>
+				) : (
+					<span className="text-xs text-void-fg-3 italic">Modelo padrão do backend</span>
+				)}
+				{currentSelection && (
+					<button
+						onClick={clearSelection}
+						className="text-void-fg-3 hover:text-void-fg-1 transition-colors"
+						title="Usar modelo padrão"
+					>
+						<X size={14} />
+					</button>
+				)}
+			</div>
+			{!currentSelection && modelOptions.length > 0 && (
+				<div className="text-xs text-void-fg-3 mt-1 italic">Usando modelo padrão do backend</div>
+			)}
+		</div>
+	)
+}
+
+const AgentModelSection = () => {
+	return (
+		<div className="my-2">
+			{acadAgentEntities.map((agent) => (
+				<AgentModelCard key={agent.id} agent={agent} />
+			))}
+		</div>
+	)
+}
+
+
 export const Settings = () => {
 	const isDark = useIsDark()
 	// ─── sidebar nav ──────────────────────────
 	const [selectedSection, setSelectedSection] =
-		useState<Tab>('models');
+		useState<Tab>('acad');
 
 	const navItems: { tab: Tab; label: string }[] = [
-		{ tab: 'models', label: 'Models' },
-		{ tab: 'localProviders', label: 'Local Providers' },
-		{ tab: 'providers', label: 'Main Providers' },
-		{ tab: 'featureOptions', label: 'Feature Options' },
-		{ tab: 'general', label: 'General' },
+		{ tab: 'acad', label: 'Acad' },
+		{ tab: 'models', label: 'Modelos' },
+		{ tab: 'localProviders', label: 'Provedores Locais' },
+		{ tab: 'providers', label: 'Provedores Principais' },
+		{ tab: 'featureOptions', label: 'Opções de Funcionalidades' },
+		{ tab: 'general', label: 'Geral' },
 		{ tab: 'mcp', label: 'MCP' },
-		{ tab: 'all', label: 'All Settings' },
+		{ tab: 'all', label: 'Todas as Configurações' },
 	];
 	const shouldShowTab = (tab: Tab) => selectedSection === 'all' || selectedSection === tab;
 	const accessor = useAccessor()
@@ -1064,12 +1151,12 @@ export const Settings = () => {
 		if (t === 'Chats') {
 			// Export chat threads
 			dataStr = JSON.stringify(chatThreadsService.state, null, 2)
-			downloadName = 'void-chats.json'
+			downloadName = 'acad-chats.json'
 		}
 		else if (t === 'Settings') {
 			// Export user settings
 			dataStr = JSON.stringify(voidSettingsService.state, null, 2)
-			downloadName = 'void-settings.json'
+			downloadName = 'acad-settings.json'
 		}
 		else {
 			dataStr = ''
@@ -1161,11 +1248,10 @@ export const Settings = () => {
 
 					<div className='max-w-3xl'>
 
-						<h1 className='text-2xl w-full'>{`Void's Settings`}</h1>
+						<h1 className='text-2xl w-full'>{`Configurações do Acad`}</h1>
 
 						<div className='w-full h-[1px] my-2' />
 
-						{/* Models section (formerly FeaturesTab) */}
 						<ErrorBoundary>
 							<RedoOnboardingButton />
 						</ErrorBoundary>
@@ -1174,11 +1260,78 @@ export const Settings = () => {
 
 						{/* All sections in flex container with gap-12 */}
 						<div className='flex flex-col gap-12'>
-							{/* Models section (formerly FeaturesTab) */}
-							<div className={shouldShowTab('models') ? `` : 'hidden'}>
-								<ErrorBoundary>
-									<h2 className={`text-3xl mb-2`}>Models</h2>
-									<ModelDump />
+
+						{/* Acad Settings section (Academic + Agents unified) */}
+						<div className={shouldShowTab('acad') ? `` : 'hidden'}>
+							<ErrorBoundary>
+								<h2 className={`text-3xl mb-2`}>Configurações Acad</h2>
+								<h3 className={`text-void-fg-3 mb-4`}>Trabalho acadêmico, agentes e modelos do Acad.</h3>
+
+								{/* Academic work settings */}
+								<div className='mb-8'>
+									<h3 className='text-lg font-medium text-void-fg-1 mb-3'>Trabalho Acadêmico</h3>
+									<div className='flex flex-col gap-4'>
+										<div>
+											<label className='text-sm font-medium text-void-fg-2 mb-1 block'>Tipo de Trabalho</label>
+											<VoidCustomDropdownBox
+												options={['tcc', 'dissertacao', 'tese'] as const}
+												selectedOption={settingsState.globalSettings.academicWorkType}
+												onChangeOption={(val) => voidSettingsService.setGlobalSetting('academicWorkType', val)}
+												getOptionDisplayName={(val) => val === 'tcc' ? 'TCC de Graduação' : val === 'dissertacao' ? 'Dissertação de Mestrado' : 'Tese de Doutorado'}
+												getOptionDropdownName={(val) => val === 'tcc' ? 'TCC de Graduação' : val === 'dissertacao' ? 'Dissertação de Mestrado' : 'Tese de Doutorado'}
+											/>
+										</div>
+
+										<div>
+											<label className='text-sm font-medium text-void-fg-2 mb-1 block'>Norma</label>
+											<div className='px-3 py-2 bg-void-bg-2 rounded text-void-fg-3'>ABNT (NBR 14724)</div>
+										</div>
+
+										<div>
+											<label className='text-sm font-medium text-void-fg-2 mb-1 block'>Instituição</label>
+											<VoidSimpleInputBox
+												placeholder='Nome da universidade...'
+												initialValue={settingsState.globalSettings.institutionName}
+												onChangeText={(val) => voidSettingsService.setGlobalSetting('institutionName', val)}
+											/>
+										</div>
+
+										<div>
+											<label className='text-sm font-medium text-void-fg-2 mb-1 block'>Programa / Curso</label>
+											<VoidSimpleInputBox
+												placeholder='Ex: Programa de Pós-Graduação em Ciência da Computação...'
+												initialValue={settingsState.globalSettings.programName}
+												onChangeText={(val) => voidSettingsService.setGlobalSetting('programName', val)}
+											/>
+										</div>
+
+										<div>
+											<label className='text-sm font-medium text-void-fg-2 mb-1 block'>Compilador LaTeX</label>
+											<VoidCustomDropdownBox
+												options={['latexmk', 'pdflatex', 'xelatex', 'lualatex'] as const}
+												selectedOption={settingsState.globalSettings.latexCompiler as 'latexmk' | 'pdflatex' | 'xelatex' | 'lualatex'}
+												onChangeOption={(val) => voidSettingsService.setGlobalSetting('latexCompiler', val)}
+												getOptionDisplayName={(val) => val === 'latexmk' ? 'latexmk (recomendado)' : val}
+												getOptionDropdownName={(val) => val === 'latexmk' ? 'latexmk (recomendado)' : val}
+											/>
+										</div>
+									</div>
+								</div>
+
+								{/* Agent model configuration */}
+								<div>
+									<h3 className='text-lg font-medium text-void-fg-1 mb-2'>Modelos dos Agentes</h3>
+									<h4 className={`text-void-fg-3 text-sm mb-3`}>Configure qual modelo LLM cada agente utiliza. Deixe vazio para usar o modelo padrão do backend.</h4>
+									<AgentModelSection />
+								</div>
+							</ErrorBoundary>
+						</div>
+
+						{/* Models section */}
+						<div className={shouldShowTab('models') ? `` : 'hidden'}>
+							<ErrorBoundary>
+								<h2 className={`text-3xl mb-2`}>Modelos</h2>
+								<ModelDump />
 									<div className='w-full h-[1px] my-4' />
 									<AutoDetectLocalModelsToggle />
 									<RefreshableModels />
@@ -1188,8 +1341,8 @@ export const Settings = () => {
 							{/* Local Providers section */}
 							<div className={shouldShowTab('localProviders') ? `` : 'hidden'}>
 								<ErrorBoundary>
-									<h2 className={`text-3xl mb-2`}>Local Providers</h2>
-									<h3 className={`text-void-fg-3 mb-2`}>{`Void can access any model that you host locally. We automatically detect your local models by default.`}</h3>
+									<h2 className={`text-3xl mb-2`}>Provedores Locais</h2>
+									<h3 className={`text-void-fg-3 mb-2`}>{`O Acad pode acessar qualquer modelo hospedado localmente. Detectamos seus modelos locais automaticamente.`}</h3>
 
 									<div className='opacity-80 mb-4'>
 										<OllamaSetupInstructions sayWeAutoDetect={true} />
@@ -1202,8 +1355,8 @@ export const Settings = () => {
 							{/* Main Providers section */}
 							<div className={shouldShowTab('providers') ? `` : 'hidden'}>
 								<ErrorBoundary>
-									<h2 className={`text-3xl mb-2`}>Main Providers</h2>
-									<h3 className={`text-void-fg-3 mb-2`}>{`Void can access models from Anthropic, OpenAI, OpenRouter, and more.`}</h3>
+									<h2 className={`text-3xl mb-2`}>Provedores Principais</h2>
+									<h3 className={`text-void-fg-3 mb-2`}>{`O Acad pode acessar modelos da Anthropic, OpenAI, OpenRouter e mais.`}</h3>
 
 									<VoidProviderSettings providerNames={nonlocalProviderNames} />
 								</ErrorBoundary>
@@ -1343,7 +1496,7 @@ export const Settings = () => {
 
 										<div className='w-full'>
 											<h4 className={`text-base`}>Editor</h4>
-											<div className='text-sm text-void-fg-3 mt-1'>{`Settings that control the visibility of Void suggestions in the code editor.`}</div>
+											<div className='text-sm text-void-fg-3 mt-1'>{`Configurações de visibilidade das sugestões no editor de código.`}</div>
 
 											<div className='my-2'>
 												{/* Auto Accept Switch */}
@@ -1396,7 +1549,7 @@ export const Settings = () => {
 								<div>
 									<ErrorBoundary>
 										<h2 className='text-3xl mb-2'>One-Click Switch</h2>
-										<h4 className='text-void-fg-3 mb-4'>{`Transfer your editor settings into Void.`}</h4>
+										<h4 className='text-void-fg-3 mb-4'>{`Transfira configurações de outro editor para o Acad.`}</h4>
 
 										<div className='flex flex-col gap-2'>
 											<OneClickSwitchButton className='w-48' fromEditor="VS Code" />
@@ -1409,7 +1562,7 @@ export const Settings = () => {
 								{/* Import/Export section */}
 								<div>
 									<h2 className='text-3xl mb-2'>Import/Export</h2>
-									<h4 className='text-void-fg-3 mb-4'>{`Transfer Void's settings and chats in and out of Void.`}</h4>
+									<h4 className='text-void-fg-3 mb-4'>{`Importe e exporte configurações e conversas do Acad.`}</h4>
 									<div className='flex flex-col gap-8'>
 										{/* Settings Subcategory */}
 										<div className='flex flex-col gap-2 max-w-48 w-full'>
@@ -1470,7 +1623,7 @@ export const Settings = () => {
 								{/* Metrics section */}
 								<div className='max-w-[600px]'>
 									<h2 className={`text-3xl mb-2`}>Metrics</h2>
-									<h4 className={`text-void-fg-3 mb-4`}>Very basic anonymous usage tracking helps us keep Void running smoothly. You may opt out below. Regardless of this setting, Void never sees your code, messages, or API keys.</h4>
+									<h4 className={`text-void-fg-3 mb-4`}>Rastreamento anônimo básico de uso ajuda a manter o Acad funcionando bem. Você pode optar por não participar abaixo. O Acad nunca vê seu código, mensagens ou chaves de API.</h4>
 
 									<div className='my-2'>
 										{/* Disable All Metrics Switch */}
@@ -1519,7 +1672,7 @@ Alternatively, place a \`.voidrules\` file in the root of your workspace.
 											</div>
 										</ErrorBoundary>
 										<div className='text-void-fg-3 text-xs mt-1'>
-											{`When disabled, Void will not include anything in the system message except for content you specified above.`}
+											{`Quando desabilitado, o Acad não incluirá nada na mensagem do sistema além do conteúdo especificado acima.`}
 										</div>
 									</div>
 								</div>

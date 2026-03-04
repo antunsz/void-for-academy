@@ -17,6 +17,7 @@ import { EditorService } from '../../services/editor/browser/editorService.js';
 import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
 import { IEditorService, SIDE_GROUP } from '../../services/editor/common/editorService.js';
 import { LifecyclePhase } from '../../services/lifecycle/common/lifecycle.js';
+import { TooltipContribution, voidTooltipMountRef } from '../../contrib/void/browser/tooltipService.js';
 import { ITestInstantiationService, TestFileEditorInput, TestServiceAccessor, TestSingletonFileEditorInput, createEditorPart, registerTestEditor, workbenchInstantiationService } from './workbenchTestServices.js';
 
 suite('Contributions', () => {
@@ -215,6 +216,31 @@ suite('Contributions', () => {
 
 		await aCreatedPromise.p;
 		assert.ok(aCreated);
+	});
+
+	test('void tooltip mount failure shows fallback content', () => {
+		const workbench = document.createElement('div');
+		workbench.className = 'monaco-workbench';
+		document.body.appendChild(workbench);
+
+		const previousMount = voidTooltipMountRef.current;
+		voidTooltipMountRef.current = () => {
+			throw new Error('boom');
+		};
+
+		const instantiationService = {
+			invokeFunction: (fn: (accessor: any) => void) => fn({}),
+		} as any;
+
+		const contribution = new TooltipContribution(instantiationService);
+		const container = workbench.querySelector('.void-tooltip-container');
+
+		assert.ok(container);
+		assert.strictEqual(container.textContent, 'Void: falha ao renderizar.');
+
+		contribution.dispose();
+		voidTooltipMountRef.current = previousMount;
+		workbench.remove();
 	});
 
 	ensureNoDisposablesAreLeakedInTestSuite();

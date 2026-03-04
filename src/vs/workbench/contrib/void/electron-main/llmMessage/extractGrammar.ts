@@ -3,6 +3,10 @@
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
+// @deprecated - Tool call parsing is handled by the Agno framework when
+// globalSettings.useAgnoBackend is true. This file remains active for the
+// legacy code path.
+
 import { generateUuid } from '../../../../../base/common/uuid.js'
 import { endsWithAnyPrefixOf, SurroundingsRemover } from '../../common/helpers/extractCodeFromResult.js'
 import { availableTools, InternalToolInfo } from '../../common/prompt/prompts.js'

@@ -3,6 +3,10 @@
  *  Licensed under the Apache License, Version 2.0. See LICENSE.txt for more information.
  *--------------------------------------------------------------------------------------*/
 
+// @deprecated - This IPC channel for LLM messages is superseded by AgnoClientBridge
+// when globalSettings.useAgnoBackend is true. LLM calls route directly to the
+// Agno AgentOS backend via HTTP/SSE instead of this Electron IPC channel.
+
 // registered in app.ts
 // code convention is to make a service responsible for this stuff, and not a channel, but having fewer files is simpler...
 

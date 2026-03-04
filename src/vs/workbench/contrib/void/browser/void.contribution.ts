@@ -58,6 +58,12 @@ import './voidOnboardingService.js'
 // register misc service
 import './miscWokrbenchContrib.js'
 
+// agno backend bridge and status
+import './agnoClientBridge.js'
+import './agnoBackendStatusContrib.js'
+import './agnoStatusContribution.js'
+import './toolExecutionService.js'
+
 // register file service (for explorer context menu)
 import './fileService.js'
 

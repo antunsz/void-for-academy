@@ -22,29 +22,49 @@ export class OnboardingContribution extends Disposable implements IWorkbenchCont
 	}
 
 	private initialize(): void {
-		// Get the active window reference for multi-window support
 		const targetWindow = getActiveWindow();
+		let retryHandle: number | undefined;
+		let attempts = 0;
+		const maxAttempts = 200;
 
-		// Find the monaco-workbench element using the proper window reference
-		const workbench = targetWindow.document.querySelector('.monaco-workbench');
+		const tryMount = () => {
+			const workbench = targetWindow.document.querySelector('.monaco-workbench');
+			if (!workbench) {
+				if (attempts < maxAttempts) {
+					attempts += 1;
+					retryHandle = targetWindow.setTimeout(tryMount, 50);
+				}
+				return;
+			}
 
-		if (workbench) {
-
+			retryHandle = undefined;
 			const onboardingContainer = h('div.void-onboarding-container').root;
 			workbench.appendChild(onboardingContainer);
-			this.instantiationService.invokeFunction((accessor: ServicesAccessor) => {
-				const result = mountVoidOnboarding(onboardingContainer, accessor);
-				if (result && typeof result.dispose === 'function') {
-					this._register(toDisposable(result.dispose));
-				}
-			});
-			// Register cleanup for the DOM element
+			try {
+				this.instantiationService.invokeFunction((accessor: ServicesAccessor) => {
+					const result = mountVoidOnboarding(onboardingContainer, accessor);
+					if (result && typeof result.dispose === 'function') {
+						this._register(toDisposable(result.dispose));
+					}
+				});
+			} catch (error) {
+				console.error('Void onboarding mount failed', error);
+				onboardingContainer.textContent = 'Void: falha ao renderizar.';
+			}
+
 			this._register(toDisposable(() => {
 				if (onboardingContainer.parentElement) {
 					onboardingContainer.parentElement.removeChild(onboardingContainer);
 				}
 			}));
-		}
+		};
+
+		tryMount();
+		this._register(toDisposable(() => {
+			if (retryHandle !== undefined) {
+				targetWindow.clearTimeout(retryHandle);
+			}
+		}));
 	}
 }
 

@@ -13,7 +13,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IMetricsService } from './metricsService.js';
 import { defaultProviderSettings, getModelCapabilities, ModelOverrides } from './modelCapabilities.js';
 import { VOID_SETTINGS_STORAGE_KEY } from './storageKeys.js';
-import { defaultSettingsOfProvider, FeatureName, ProviderName, ModelSelectionOfFeature, SettingsOfProvider, SettingName, providerNames, ModelSelection, modelSelectionsEqual, featureNames, VoidStatefulModelInfo, GlobalSettings, GlobalSettingName, defaultGlobalSettings, ModelSelectionOptions, OptionsOfModelSelection, ChatMode, OverridesOfModel, defaultOverridesOfModel, MCPUserStateOfName as MCPUserStateOfName, MCPUserState } from './voidSettingsTypes.js';
+import { defaultSettingsOfProvider, FeatureName, ProviderName, ModelSelectionOfFeature, SettingsOfProvider, SettingName, providerNames, ModelSelection, modelSelectionsEqual, featureNames, VoidStatefulModelInfo, GlobalSettings, GlobalSettingName, defaultGlobalSettings, ModelSelectionOptions, OptionsOfModelSelection, ChatMode, OverridesOfModel, defaultOverridesOfModel, MCPUserStateOfName as MCPUserStateOfName, MCPUserState, AgentModelSelection } from './voidSettingsTypes.js';
 
 
 // name is the name in the dropdown
@@ -75,6 +75,8 @@ export interface IVoidSettingsService {
 	toggleModelHidden(providerName: ProviderName, modelName: string): void;
 	addModel(providerName: ProviderName, modelName: string): void;
 	deleteModel(providerName: ProviderName, modelName: string): boolean;
+
+	setAgentModelSelection(agentId: string, selection: AgentModelSelection | null): void;
 
 	addMCPUserStateOfNames(userStateOfName: MCPUserStateOfName): Promise<void>;
 	removeMCPUserStateOfNames(serverNames: string[]): Promise<void>;
@@ -292,6 +294,15 @@ class VoidSettingsService extends Disposable implements IVoidSettingsService {
 			
 			// add autoAcceptLLMChanges feature
 			if (readS.globalSettings.autoAcceptLLMChanges === undefined) readS.globalSettings.autoAcceptLLMChanges = false;
+
+			// add agentModelSelections
+			if (readS.globalSettings.agentModelSelections === undefined) readS.globalSettings.agentModelSelections = {};
+
+			// add selectedAcadEntity
+			if ((readS.globalSettings as any).selectedAcadEntity === undefined) (readS.globalSettings as any).selectedAcadEntity = 'acad-agent';
+
+			// add agnoVerbose
+			if ((readS.globalSettings as any).agnoVerbose === undefined) (readS.globalSettings as any).agnoVerbose = false;
 		}
 		catch (e) {
 			readS = defaultState()
@@ -425,6 +436,14 @@ class VoidSettingsService extends Disposable implements IVoidSettingsService {
 		if (this.state.globalSettings.syncApplyToChat) this._onUpdate_syncApplyToChat()
 		if (this.state.globalSettings.syncSCMToChat) this._onUpdate_syncSCMToChat()
 
+	}
+
+	setAgentModelSelection = (agentId: string, selection: AgentModelSelection | null) => {
+		const updatedSelections = {
+			...this.state.globalSettings.agentModelSelections,
+			[agentId]: selection,
+		}
+		this.setGlobalSetting('agentModelSelections', updatedSelections)
 	}
 
 

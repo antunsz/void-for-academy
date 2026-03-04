@@ -290,6 +290,15 @@ export class ToolsService implements IToolsService {
 				return { persistentTerminalId };
 			},
 
+			compile_latex: (params: RawToolParamsObj) => {
+				const { uri: uriStr, compiler: compilerUnknown, cwd: cwdUnknown } = params
+				const uri = validateURI(uriStr)
+				const compiler = validateOptionalStr('compiler', compilerUnknown) ?? 'latexmk'
+				const cwd = validateOptionalStr('cwd', cwdUnknown)
+				const terminalId = generateUuid()
+				return { uri, compiler, cwd, terminalId }
+			},
+
 		}
 
 
@@ -461,6 +470,18 @@ export class ToolsService implements IToolsService {
 				await this.terminalToolService.killPersistentTerminal(persistentTerminalId)
 				return { result: {} }
 			},
+
+			compile_latex: async ({ uri, compiler, cwd, terminalId }) => {
+				const filePath = uri.fsPath
+				let command: string
+				if (compiler === 'latexmk') {
+					command = `latexmk -pdf -interaction=nonstopmode "${filePath}"`
+				} else {
+					command = `${compiler} -interaction=nonstopmode "${filePath}" && bibtex "${filePath.replace(/\.tex$/, '')}" && ${compiler} -interaction=nonstopmode "${filePath}" && ${compiler} -interaction=nonstopmode "${filePath}"`
+				}
+				const { resPromise, interrupt } = await this.terminalToolService.runCommand(command, { type: 'temporary', cwd, terminalId })
+				return { result: resPromise, interruptTool: interrupt }
+			},
 		}
 
 
@@ -563,6 +584,20 @@ export class ToolsService implements IToolsService {
 			},
 			kill_persistent_terminal: (params, _result) => {
 				return `Successfully closed terminal "${params.persistentTerminalId}".`;
+			},
+
+			compile_latex: (params, result) => {
+				const { resolveReason, result: output } = result
+				if (resolveReason.type === 'done') {
+					if (resolveReason.exitCode === 0) {
+						return `Compilação LaTeX concluída com sucesso para ${params.uri.fsPath}.\n${output}`
+					}
+					return `Compilação LaTeX falhou (exit code ${resolveReason.exitCode}) para ${params.uri.fsPath}.\n${output}`
+				}
+				if (resolveReason.type === 'timeout') {
+					return `${output}\nCompilação LaTeX ainda em progresso (timeout após ${MAX_TERMINAL_INACTIVE_TIME}s de inatividade).`
+				}
+				throw new Error(`Unexpected internal error: LaTeX compilation did not resolve with a valid reason.`)
 			},
 		}
 

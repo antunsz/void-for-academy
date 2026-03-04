@@ -202,3 +202,120 @@
 .void-scrollable-element *::-webkit-scrollbar-corner {
 	background-color: var(--void-bg-3) !important;
 }
+
+/* Acad AI status view (Agno) */
+.agno-status-view {
+	padding: 12px 16px;
+}
+
+.agno-status-content {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.agno-status-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.agno-status-icon {
+	font-size: 16px;
+	opacity: 0.9;
+}
+
+.agno-status-text {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.agno-status-detail {
+	font-size: 12px;
+	opacity: 0.8;
+}
+
+.agno-status-url {
+	font-size: 11px;
+	font-family: var(--monaco-monospace-font);
+	opacity: 0.7;
+}
+
+.agno-status-refresh {
+	margin-top: 8px;
+	padding: 4px 10px;
+	font-size: 12px;
+	cursor: pointer;
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: none;
+	border-radius: 4px;
+}
+
+.agno-status-refresh:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.agno-status-details {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--vscode-widget-border);
+	font-size: 12px;
+}
+
+.agno-status-loading {
+	opacity: 0.7;
+}
+
+.agno-status-error {
+	color: var(--vscode-errorForeground);
+}
+
+.agno-status-section {
+	margin-bottom: 12px;
+}
+
+.agno-status-section-title {
+	margin: 0 0 6px 0;
+	font-size: 12px;
+	font-weight: 600;
+	opacity: 0.9;
+}
+
+.agno-status-list {
+	margin: 0;
+	padding-left: 16px;
+	list-style: disc;
+}
+
+.agno-status-list-item {
+	margin-bottom: 2px;
+}
+
+.agno-status-trace-item {
+	margin-bottom: 10px;
+	padding: 8px;
+	background: var(--vscode-textBlockQuote-background);
+	border-left: 3px solid var(--vscode-focusBorder);
+	border-radius: 2px;
+}
+
+.agno-status-trace-name {
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.agno-status-trace-meta {
+	font-size: 11px;
+	opacity: 0.8;
+	margin-top: 2px;
+}
+
+.agno-status-trace-input,
+.agno-status-trace-output {
+	font-size: 11px;
+	margin-top: 4px;
+	opacity: 0.85;
+	white-space: pre-wrap;
+	word-break: break-word;
+}

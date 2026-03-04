@@ -287,7 +287,7 @@ export class EditorGroupWatermark extends Disposable {
 				const keys = this.keybindingService.lookupKeybinding(VOID_CTRL_L_ACTION_ID);
 				const dl = append(voidIconBox, $('dl'));
 				const dt = append(dl, $('dt'));
-				dt.textContent = 'Chat'
+				dt.textContent = 'Assistente'
 				const dd = append(dl, $('dd'));
 				const label = new KeybindingLabel(dd, OS, { renderUnboundKeybindings: true, ...defaultKeybindingLabelStyles });
 				if (keys)
@@ -298,7 +298,7 @@ export class EditorGroupWatermark extends Disposable {
 				const keys2 = this.keybindingService.lookupKeybinding(VOID_CTRL_K_ACTION_ID);
 				const dl2 = append(voidIconBox, $('dl'));
 				const dt2 = append(dl2, $('dt'));
-				dt2.textContent = 'Quick Edit'
+				dt2.textContent = 'Edição Rápida'
 				const dd2 = append(dl2, $('dd'));
 				const label2 = new KeybindingLabel(dd2, OS, { renderUnboundKeybindings: true, ...defaultKeybindingLabelStyles });
 				if (keys2)

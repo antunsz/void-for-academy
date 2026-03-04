@@ -116,23 +116,16 @@ export const defaultModelsOfProvider = {
 	lmStudio: [], // autodetected
 
 	openRouter: [ // https://openrouter.ai/models
-		// 'anthropic/claude-3.7-sonnet:thinking',
 		'anthropic/claude-opus-4',
 		'anthropic/claude-sonnet-4',
 		'qwen/qwen3-235b-a22b',
 		'anthropic/claude-3.7-sonnet',
 		'anthropic/claude-3.5-sonnet',
 		'deepseek/deepseek-r1',
-		'deepseek/deepseek-r1-zero:free',
-		'mistralai/devstral-small:free'
-		// 'openrouter/quasar-alpha',
-		// 'google/gemini-2.5-pro-preview-03-25',
-		// 'mistralai/codestral-2501',
-		// 'qwen/qwen-2.5-coder-32b-instruct',
-		// 'mistralai/mistral-small-3.1-24b-instruct:free',
-		// 'google/gemini-2.0-flash-lite-preview-02-05:free',
-		// 'google/gemini-2.0-pro-exp-02-05:free',
-		// 'google/gemini-2.0-flash-exp:free',
+		'meta-llama/llama-3.3-70b-instruct:free',
+		'qwen/qwen3-coder:free',
+		'mistralai/mistral-small-3.1-24b-instruct:free',
+		'google/gemma-3-27b-it:free',
 	],
 	groq: [ // https://console.groq.com/docs/models
 		'qwen-qwq-32b',
@@ -1326,6 +1319,36 @@ const openRouterModelOptions_assumingOpenAICompat = {
 		cost: { input: 0.8, output: 2.4 },
 		downloadable: false,
 	},
+	'meta-llama/llama-3.3-70b-instruct:free': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: null,
+		cost: { input: 0, output: 0 },
+		downloadable: false,
+		supportsSystemMessage: 'system-role',
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: false,
+	},
+	'qwen/qwen3-coder:free': {
+		contextWindow: 262_000,
+		reservedOutputTokenSpace: null,
+		cost: { input: 0, output: 0 },
+		downloadable: false,
+		supportsSystemMessage: 'system-role',
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: { supportsReasoning: true, canIOReasoning: true, canTurnOffReasoning: true, openSourceThinkTags: ['<think>', '</think>'] },
+	},
+	'google/gemma-3-27b-it:free': {
+		contextWindow: 131_000,
+		reservedOutputTokenSpace: null,
+		cost: { input: 0, output: 0 },
+		downloadable: false,
+		supportsSystemMessage: 'system-role',
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: false,
+	},
 	'anthropic/claude-opus-4': {
 		contextWindow: 200_000,
 		reservedOutputTokenSpace: null,
@@ -1412,6 +1435,11 @@ const openRouterModelOptions_assumingOpenAICompat = {
 const openRouterSettings: VoidStaticProviderInfo = {
 	modelOptions: openRouterModelOptions_assumingOpenAICompat,
 	modelOptionsFallback: (modelName) => {
+		const lower = modelName.toLowerCase()
+		if ((lower.includes('deepseek') && lower.includes('free')) || lower.includes('gemini-2.0-flash-exp:free')) {
+			const opts = openRouterModelOptions_assumingOpenAICompat['meta-llama/llama-3.3-70b-instruct:free']
+			return { modelName: 'meta-llama/llama-3.3-70b-instruct:free', recognizedModelName: 'meta-llama/llama-3.3-70b-instruct:free', ...opts }
+		}
 		const res = extensiveModelOptionsFallback(modelName)
 		// openRouter does not support gemini-style, use openai-style instead
 		if (res?.specialToolFormat === 'gemini-style') {

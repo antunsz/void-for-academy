@@ -111,19 +111,19 @@ const providerNamesOfTab: Record<TabName, ProviderName[]> = {
 };
 
 const descriptionOfTab: Record<TabName, string> = {
-	Free: `Providers with a 100% free tier. Add as many as you'd like!`,
-	Paid: `Connect directly with any provider (bring your own key).`,
-	Local: `Active providers should appear automatically. Add as many as you'd like! `,
-	'Cloud/Other': `Add as many as you'd like! Reach out for custom configuration requests.`,
+	Free: `Provedores com plano 100% gratuito. Adicione quantos quiser!`,
+	Paid: `Conecte diretamente com qualquer provedor (use sua própria chave).`,
+	Local: `Provedores ativos devem aparecer automaticamente. Adicione quantos quiser!`,
+	'Cloud/Other': `Adicione quantos quiser! Entre em contato para configurações personalizadas.`,
 };
 
 
 const featureNameMap: { display: string, featureName: FeatureName }[] = [
-	{ display: 'Chat', featureName: 'Chat' },
-	{ display: 'Quick Edit', featureName: 'Ctrl+K' },
-	{ display: 'Autocomplete', featureName: 'Autocomplete' },
-	{ display: 'Fast Apply', featureName: 'Apply' },
-	{ display: 'Source Control', featureName: 'SCM' },
+	{ display: 'Assistente', featureName: 'Chat' },
+	{ display: 'Edição Rápida', featureName: 'Ctrl+K' },
+	{ display: 'Autocomplete LaTeX', featureName: 'Autocomplete' },
+	{ display: 'Aplicar Edições', featureName: 'Apply' },
+	{ display: 'Resumo de Versão', featureName: 'SCM' },
 ];
 
 const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setPageIndex: (index: number) => void }) => {
@@ -193,7 +193,7 @@ const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setP
 
 		{/* Right Column */}
 		<div className="flex-1 flex flex-col items-center justify-start p-6 h-full overflow-y-auto">
-			<div className="text-5xl mb-2 text-center w-full">Add a Provider</div>
+			<div className="text-5xl mb-2 text-center w-full">Adicionar Provedor</div>
 
 			<div className="w-full max-w-xl mt-4 mb-10">
 				<div className="text-4xl font-light my-4 w-full">{currentTab}</div>
@@ -262,7 +262,7 @@ const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setP
 								setErrorMessage(null);
 							} else {
 								// Show error message
-								setErrorMessage("Please set up at least one Chat model before moving on.");
+								setErrorMessage("Por favor, configure pelo menos um modelo de Chat antes de continuar.");
 							}
 						}}
 					/>
@@ -334,7 +334,7 @@ const NextButton = ({ onClick, ...props }: { onClick: () => void } & React.Butto
 			}}
 			{...buttonProps}
 		>
-			Next
+			Próximo
 		</button>
 	)
 }
@@ -346,7 +346,7 @@ const PreviousButton = ({ onClick, ...props }: { onClick: () => void } & React.B
 			className="px-6 py-2 rounded text-void-fg-3 opacity-80 hover:brightness-115 duration-600 transition-all"
 			{...props}
 		>
-			Back
+			Voltar
 		</button>
 	)
 }
@@ -547,24 +547,24 @@ const VoidOnboardingContent = () => {
 					voidMetricsService.capture('Completed Onboarding', { selectedProviderName, wantToUseOption })
 				}}
 				ringSize={voidSettingsState.globalSettings.isOnboardingComplete ? 'screen' : undefined}
-			>Enter the Void</PrimaryActionButton>
+			>Entrar no Acad</PrimaryActionButton>
 		</div>
 	</div>
 
 
 	// cannot be md
 	const basicDescOfWantToUseOption: { [wantToUseOption in WantToUseOption]: string } = {
-		smart: "Models with the best performance on benchmarks.",
-		private: "Host on your computer or local network for full data privacy.",
-		cheap: "Free and affordable options.",
+		smart: "Modelos com melhor desempenho para redação acadêmica.",
+		private: "Hospede no seu computador para total privacidade dos dados.",
+		cheap: "Opções gratuitas e acessíveis.",
 		all: "",
 	}
 
 	// can be md
 	const detailedDescOfWantToUseOption: { [wantToUseOption in WantToUseOption]: string } = {
-		smart: "Most intelligent and best for agent mode.",
-		private: "Private-hosted so your data never leaves your computer or network. [Email us](mailto:founders@voideditor.com) for help setting up at your company.",
-		cheap: "Use great deals like Gemini 2.5 Pro, or self-host a model with Ollama or vLLM for free.",
+		smart: "Mais inteligentes e melhores para o modo agente acadêmico.",
+		private: "Hospedagem privada para que seus dados nunca saiam do seu computador ou rede.",
+		cheap: "Use ofertas como Gemini 2.5 Pro, ou hospede um modelo localmente com Ollama ou vLLM gratuitamente.",
 		all: "",
 	}
 
@@ -592,14 +592,24 @@ const VoidOnboardingContent = () => {
 	}, [setPageIndex, voidSettingsState.globalSettings.isOnboardingComplete])
 
 
+	const academicWorkTypes = [
+		{ id: 'tcc' as const, label: 'TCC de Graduação', desc: 'Trabalho de Conclusão de Curso' },
+		{ id: 'dissertacao' as const, label: 'Dissertação de Mestrado', desc: 'Dissertação para obtenção do título de Mestre' },
+		{ id: 'tese' as const, label: 'Tese de Doutorado', desc: 'Tese para obtenção do título de Doutor' },
+	]
+
 	const contentOfIdx: { [pageIndex: number]: React.ReactNode } = {
 		0: <OnboardingPageShell
 			content={
 				<div className='flex flex-col items-center gap-8'>
-					<div className="text-5xl font-light text-center">Welcome to Void</div>
+					<div className="text-5xl font-light text-center">Bem-vindo ao Acad</div>
+
+					<div className='max-w-md w-full mx-auto flex items-center justify-center text-center'>
+						<p className="text-lg text-void-fg-3 opacity-80">Seu assistente de IA para trabalhos acadêmicos com LaTeX e ABNT</p>
+					</div>
 
 					{/* Slice of Void image */}
-					<div className='max-w-md w-full h-[30vh] mx-auto flex items-center justify-center'>
+					<div className='max-w-md w-full h-[20vh] mx-auto flex items-center justify-center'>
 						{!isLinux && <VoidIcon />}
 					</div>
 
@@ -610,7 +620,7 @@ const VoidOnboardingContent = () => {
 						<PrimaryActionButton
 							onClick={() => { setPageIndex(1) }}
 						>
-							Get Started
+							Começar
 						</PrimaryActionButton>
 					</FadeIn>
 
@@ -623,14 +633,48 @@ const VoidOnboardingContent = () => {
 				<AddProvidersPage pageIndex={pageIndex} setPageIndex={setPageIndex} />
 			}
 		/>,
+
 		2: <OnboardingPageShell
+			content={
+				<div>
+					<div className="text-5xl font-light text-center">Tipo de Trabalho</div>
+
+					<div className="mt-8 flex flex-col items-center gap-4 w-full max-w-md mx-auto">
+						<h4 className="text-void-fg-3 mb-2 text-center">Qual tipo de trabalho acadêmico você está desenvolvendo?</h4>
+
+						{academicWorkTypes.map(({ id, label, desc }) => (
+							<button
+								key={id}
+								className={`w-full px-6 py-4 rounded-lg text-left transition-all duration-200 ${voidSettingsState.globalSettings.academicWorkType === id
+									? 'bg-[#0e70c0]/80 text-white shadow-sm'
+									: 'bg-void-bg-2 hover:bg-void-bg-2/80 text-void-fg-1'
+									}`}
+								onClick={() => voidSettingsService.setGlobalSetting('academicWorkType', id)}
+							>
+								<div className="font-medium text-lg">{label}</div>
+								<div className={`text-sm mt-1 ${voidSettingsState.globalSettings.academicWorkType === id ? 'text-white/70' : 'text-void-fg-3'}`}>{desc}</div>
+							</button>
+						))}
+
+						<div className="mt-4 p-4 rounded-lg bg-void-bg-2/50 border border-void-border-4 w-full">
+							<div className="text-sm text-void-fg-3">
+								<span className="font-medium text-void-fg-1">Norma: </span>ABNT (NBR 14724)
+							</div>
+						</div>
+					</div>
+				</div>
+			}
+			bottom={prevAndNextButtons}
+		/>,
+
+		3: <OnboardingPageShell
 
 			content={
 				<div>
-					<div className="text-5xl font-light text-center">Settings and Themes</div>
+					<div className="text-5xl font-light text-center">Configurações e Temas</div>
 
 					<div className="mt-8 text-center flex flex-col items-center gap-4 w-full max-w-md mx-auto">
-						<h4 className="text-void-fg-3 mb-4">Transfer your settings from an existing editor?</h4>
+						<h4 className="text-void-fg-3 mb-4">Importar configurações de outro editor?</h4>
 						<OneClickSwitchButton className='w-full px-4 py-2' fromEditor="VS Code" />
 						<OneClickSwitchButton className='w-full px-4 py-2' fromEditor="Cursor" />
 						<OneClickSwitchButton className='w-full px-4 py-2' fromEditor="Windsurf" />

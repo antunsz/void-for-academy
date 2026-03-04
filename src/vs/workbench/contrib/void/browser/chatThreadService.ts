@@ -10,17 +10,15 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 
 import { URI } from '../../../../base/common/uri.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { ILLMMessageService } from '../common/sendLLMMessageService.js';
 import { chat_userMessageContent, isABuiltinToolName } from '../common/prompt/prompts.js';
-import { AnthropicReasoning, getErrorMessage, RawToolCallObj, RawToolParamsObj } from '../common/sendLLMMessageTypes.js';
+import { getErrorMessage, RawToolCallObj, RawToolParamsObj } from '../common/sendLLMMessageTypes.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { FeatureName, ModelSelection, ModelSelectionOptions } from '../common/voidSettingsTypes.js';
 import { IVoidSettingsService } from '../common/voidSettingsService.js';
-import { approvalTypeOfBuiltinToolName, BuiltinToolCallParams, ToolCallParams, ToolName, ToolResult } from '../common/toolsServiceTypes.js';
+import { approvalTypeOfBuiltinToolName, BuiltinToolCallParams, ToolCallParams, ToolName } from '../common/toolsServiceTypes.js';
 import { IToolsService } from './toolsService.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
-import { ChatMessage, CheckpointEntry, CodespanLocationLink, StagingSelectionItem, ToolMessage } from '../common/chatThreadServiceTypes.js';
+import { ChatMessage, CheckpointEntry, CodespanLocationLink, StagingSelectionItem } from '../common/chatThreadServiceTypes.js';
 import { Position } from '../../../../editor/common/core/position.js';
 import { IMetricsService } from '../common/metricsService.js';
 import { shorten } from '../../../../base/common/labels.js';
@@ -31,19 +29,14 @@ import { VoidFileSnapshot } from '../common/editCodeServiceTypes.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { truncate } from '../../../../base/common/strings.js';
 import { THREAD_STORAGE_KEY } from '../common/storageKeys.js';
-import { IConvertToLLMMessageService } from './convertToLLMMessageService.js';
-import { timeout } from '../../../../base/common/async.js';
 import { deepClone } from '../../../../base/common/objects.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IDirectoryStrService } from '../common/directoryStrService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IMCPService } from '../common/mcpService.js';
-import { RawMCPToolCall } from '../common/mcpServiceTypes.js';
-
-
-// related to retrying when LLM message has error
-const CHAT_RETRIES = 3
-const RETRY_DELAY = 2500
+import { IAgnoClientBridge, AgnoStreamEvent } from './agnoClientBridge.js';
+import { IToolExecutionService } from './toolExecutionService.js';
+import { AgnoToolRequirement, AgnoToolResult } from '../common/agnoTypes.js';
 
 
 const findStagingSelectionIndex = (currentSelections: StagingSelectionItem[] | undefined, newSelection: StagingSelectionItem): number | null => {
@@ -315,18 +308,18 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 	constructor(
 		@IStorageService private readonly _storageService: IStorageService,
 		@IVoidModelService private readonly _voidModelService: IVoidModelService,
-		@ILLMMessageService private readonly _llmMessageService: ILLMMessageService,
 		@IToolsService private readonly _toolsService: IToolsService,
 		@IVoidSettingsService private readonly _settingsService: IVoidSettingsService,
 		@ILanguageFeaturesService private readonly _languageFeaturesService: ILanguageFeaturesService,
 		@IMetricsService private readonly _metricsService: IMetricsService,
 		@IEditCodeService private readonly _editCodeService: IEditCodeService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@IConvertToLLMMessageService private readonly _convertToLLMMessagesService: IConvertToLLMMessageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IDirectoryStrService private readonly _directoryStringService: IDirectoryStrService,
 		@IFileService private readonly _fileService: IFileService,
 		@IMCPService private readonly _mcpService: IMCPService,
+		@IAgnoClientBridge private readonly _agnoClientBridge: IAgnoClientBridge,
+		@IToolExecutionService private readonly _toolExecutionService: IToolExecutionService,
 	) {
 		super()
 		this.state = { allThreads: {}, currentThreadId: null as unknown as string } // default state
@@ -486,19 +479,6 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 
 
 	// ---------- streaming ----------
-
-
-
-	private _currentModelSelectionProps = () => {
-		// these settings should not change throughout the loop (eg anthropic breaks if you change its thinking mode and it's using tools)
-		const featureName: FeatureName = 'Chat'
-		const modelSelection = this._settingsService.state.modelSelectionOfFeature[featureName]
-		const modelSelectionOptions = modelSelection ? this._settingsService.state.optionsOfModelSelection[featureName][modelSelection.providerName]?.[modelSelection.modelName] : undefined
-		return { modelSelection, modelSelectionOptions }
-	}
-
-
-
 	private _swapOutLatestStreamingToolWithResult = (threadId: string, tool: ChatMessage & { role: 'tool' }) => {
 		const messages = this.state.allThreads[threadId]?.messages
 		if (!messages) return false
@@ -524,11 +504,20 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 		const lastMsg = thread.messages[thread.messages.length - 1]
 		if (!(lastMsg.role === 'tool' && lastMsg.type === 'tool_request')) return // should never happen
 
-		const callThisToolFirst: ToolMessage<ToolName> = lastMsg
+		if (!this._useAgnoBackend()) {
+			this._setStreamState(threadId, {
+				isRunning: undefined,
+				error: {
+					message: 'Agno obrigatório: habilite "useAgnoBackend" nas configurações do Acad.',
+					fullError: null,
+				},
+			});
+			return;
+		}
 
 		this._wrapRunAgentToNotify(
-			this._runChatAgent({ callThisToolFirst, threadId, ...this._currentModelSelectionProps() })
-			, threadId
+			this._approveAgnoToolRequest(threadId),
+			threadId,
 		)
 	}
 	rejectLatestToolRequest(threadId: string) {
@@ -600,314 +589,277 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 
 	// private readonly _currentlyRunningToolInterruptor: { [threadId: string]: (() => void) | undefined } = {}
 
+	// -----------------------------------------------------------------------
+	// Agno-based agent runner (Agno is mandatory for chat in Acad)
+	// -----------------------------------------------------------------------
 
-	// returns true when the tool call is waiting for user approval
-	private _runToolCall = async (
+	private _useAgnoBackend(): boolean {
+		return this._settingsService.state.globalSettings.useAgnoBackend === true;
+	}
+
+	private async _isAgnoAvailable(): Promise<boolean> {
+		if (this._agnoClientBridge.isBackendAvailable) return true;
+		return this._agnoClientBridge.healthCheck();
+	}
+
+	private _currentAgnoRunId: { [threadId: string]: string | undefined } = {};
+
+	private async _runChatAgentViaAgno({ threadId }: { threadId: string }) {
+		const thread = this.state.allThreads[threadId];
+		if (!thread) return;
+
+		const lastUserMsg = findLast(thread.messages, m => m.role === 'user');
+		if (!lastUserMsg || lastUserMsg.role !== 'user') return;
+
+		// Check if the backend is actually reachable
+		const available = await this._isAgnoAvailable();
+		if (!available) {
+			const backendUrl = this._settingsService.state.globalSettings.agnoBackendUrl || 'http://127.0.0.1:7777';
+			this._setStreamState(threadId, {
+				isRunning: undefined,
+				error: {
+					message: `Backend Agno indisponível em ${backendUrl}. Inicie o backend com: cd acad-backend && make backend-start`,
+					fullError: null,
+				},
+			});
+			this._addUserCheckpoint({ threadId });
+			return;
+		}
+
+		const selectedEntityId = this._settingsService.state.globalSettings.selectedAcadEntity || 'acad-agent';
+		const showVerbose = this._settingsService.state.globalSettings.agnoVerbose === true;
+
+		this._setStreamState(threadId, { isRunning: 'LLM', llmInfo: { displayContentSoFar: '', reasoningSoFar: '', toolCallSoFar: null }, interrupt: Promise.resolve(() => { runHandle?.abort(); }) });
+
+		let fullText = '';
+		let debugLog = '';
+		let runHandle: ReturnType<typeof this._agnoClientBridge.startEntityRun> | undefined;
+
+		const handleEvent = async (event: AgnoStreamEvent) => {
+			if (showVerbose) {
+				debugLog += `[agno:${event.type}] ${JSON.stringify(event).slice(0, 200)}\n`;
+			}
+
+			switch (event.type) {
+				case 'text': {
+					fullText += event.content;
+					const display = showVerbose ? fullText + '\n\n---\n```\n' + debugLog + '```' : fullText;
+					this._setStreamState(threadId, {
+						isRunning: 'LLM',
+						llmInfo: { displayContentSoFar: display, reasoningSoFar: '', toolCallSoFar: null },
+						interrupt: Promise.resolve(() => { runHandle?.abort(); }),
+					});
+					break;
+				}
+
+				case 'paused': {
+					this._currentAgnoRunId[threadId] = event.runId;
+
+					if (fullText) {
+						this._addMessageToThread(threadId, { role: 'assistant', displayContent: fullText, reasoning: '', anthropicReasoning: null });
+						fullText = '';
+					}
+
+					await this._handleAgnoToolRequirements(threadId, event.runId, event.requirements);
+					break;
+				}
+
+				case 'completed': {
+					this._currentAgnoRunId[threadId] = event.runId;
+					if (event.fullText && !fullText) {
+						fullText = event.fullText;
+					}
+					if (fullText) {
+						const display = showVerbose
+							? fullText + '\n\n---\n**Agno Debug (`' + selectedEntityId + '`)**\n```\n' + debugLog + '```'
+							: fullText;
+						this._addMessageToThread(threadId, { role: 'assistant', displayContent: display, reasoning: '', anthropicReasoning: null });
+					}
+
+					this._setStreamState(threadId, { isRunning: undefined });
+					this._addUserCheckpoint({ threadId });
+					this._metricsService.capture('Agent Loop Done (Agno)', { chatMode: 'agent', entityId: selectedEntityId });
+					break;
+				}
+
+				case 'error': {
+					if (fullText) {
+						this._addMessageToThread(threadId, { role: 'assistant', displayContent: fullText, reasoning: '', anthropicReasoning: null });
+					}
+					this._setStreamState(threadId, { isRunning: undefined, error: { message: `[${selectedEntityId}] ${event.message}`, fullError: null } });
+					this._addUserCheckpoint({ threadId });
+					break;
+				}
+
+				case 'cancelled': {
+					this._setStreamState(threadId, undefined);
+					break;
+				}
+			}
+		};
+
+		runHandle = this._agnoClientBridge.startEntityRun({
+			entityId: selectedEntityId,
+			message: lastUserMsg.content,
+			sessionId: threadId,
+			onEvent: (event) => { handleEvent(event); },
+		});
+	}
+
+	/**
+	 * Handle external tool execution requirements from Agno.
+	 * For tools that need approval, pause and wait for user action.
+	 * For auto-approved tools, execute immediately and continue the run.
+	 */
+	private async _handleAgnoToolRequirements(
 		threadId: string,
-		toolName: ToolName,
-		toolId: string,
-		mcpServerName: string | undefined,
-		opts: { preapproved: true, unvalidatedToolParams: RawToolParamsObj, validatedParams: ToolCallParams<ToolName> } | { preapproved: false, unvalidatedToolParams: RawToolParamsObj },
-	): Promise<{ awaitingUserApproval?: boolean, interrupted?: boolean }> => {
+		runId: string,
+		requirements: AgnoToolRequirement[],
+	): Promise<void> {
+		const toolResults: AgnoToolResult[] = [];
 
-		// compute these below
-		let toolParams: ToolCallParams<ToolName>
-		let toolResult: ToolResult<ToolName>
-		let toolResultStr: string
+		for (const requirement of requirements) {
+			const { tool_name } = requirement.tool_execution;
+			const toolName = tool_name as ToolName;
 
-		// Check if it's a built-in tool
-		const isBuiltInTool = isABuiltinToolName(toolName)
+			const approvalType = isABuiltinToolName(toolName) ? approvalTypeOfBuiltinToolName[toolName] : 'MCP tools';
+			const autoApprove = approvalType ? this._settingsService.state.globalSettings.autoApprove[approvalType] : true;
 
-
-		if (!opts.preapproved) { // skip this if pre-approved
-			// 1. validate tool params
-			try {
-				if (isBuiltInTool) {
-					const params = this._toolsService.validateParams[toolName](opts.unvalidatedToolParams)
-					toolParams = params
+			if (approvalType && !autoApprove) {
+				// needs user approval - show request UI and wait
+				const rawParams: RawToolParamsObj = {};
+				for (const [k, v] of Object.entries(requirement.tool_execution.tool_args)) {
+					if (v !== undefined && v !== null) rawParams[k] = String(v);
 				}
-				else {
-					toolParams = opts.unvalidatedToolParams
-				}
-			}
-			catch (error) {
-				const errorMessage = getErrorMessage(error)
-				this._addMessageToThread(threadId, { role: 'tool', type: 'invalid_params', rawParams: opts.unvalidatedToolParams, result: null, name: toolName, content: errorMessage, id: toolId, mcpServerName })
-				return {}
-			}
-			// once validated, add checkpoint for edit
-			if (toolName === 'edit_file') { this._addToolEditCheckpoint({ threadId, uri: (toolParams as BuiltinToolCallParams['edit_file']).uri }) }
-			if (toolName === 'rewrite_file') { this._addToolEditCheckpoint({ threadId, uri: (toolParams as BuiltinToolCallParams['rewrite_file']).uri }) }
+				const id = requirement.tool_execution.tool_call_id || tool_name;
+				// Store requirement info for later retrieval
+				this._pendingAgnoRequirements[threadId] = { runId, requirements, currentIndex: requirements.indexOf(requirement) };
 
-			// 2. if tool requires approval, break from the loop, awaiting approval
-
-			const approvalType = isBuiltInTool ? approvalTypeOfBuiltinToolName[toolName] : 'MCP tools'
-			if (approvalType) {
-				const autoApprove = this._settingsService.state.globalSettings.autoApprove[approvalType]
-				// add a tool_request because we use it for UI if a tool is loading (this should be improved in the future)
-				this._addMessageToThread(threadId, { role: 'tool', type: 'tool_request', content: '(Awaiting user permission...)', result: null, name: toolName, params: toolParams, id: toolId, rawParams: opts.unvalidatedToolParams, mcpServerName })
-				if (!autoApprove) {
-					return { awaitingUserApproval: true }
-				}
-			}
-		}
-		else {
-			toolParams = opts.validatedParams
-		}
-
-
-
-
-
-
-		// 3. call the tool
-		// this._setStreamState(threadId, { isRunning: 'tool' }, 'merge')
-		const runningTool = { role: 'tool', type: 'running_now', name: toolName, params: toolParams, content: '(value not received yet...)', result: null, id: toolId, rawParams: opts.unvalidatedToolParams, mcpServerName } as const
-		this._updateLatestTool(threadId, runningTool)
-
-
-		let interrupted = false
-		let resolveInterruptor: (r: () => void) => void = () => { }
-		const interruptorPromise = new Promise<() => void>(res => { resolveInterruptor = res })
-		try {
-
-			// set stream state
-			this._setStreamState(threadId, { isRunning: 'tool', interrupt: interruptorPromise, toolInfo: { toolName, toolParams, id: toolId, content: 'interrupted...', rawParams: opts.unvalidatedToolParams, mcpServerName } })
-
-			if (isBuiltInTool) {
-				const { result, interruptTool } = await this._toolsService.callTool[toolName](toolParams as any)
-				const interruptor = () => { interrupted = true; interruptTool?.() }
-				resolveInterruptor(interruptor)
-
-				toolResult = await result
-			}
-			else {
-				const mcpTools = this._mcpService.getMCPTools()
-				const mcpTool = mcpTools?.find(t => t.name === toolName)
-				if (!mcpTool) { throw new Error(`MCP tool ${toolName} not found`) }
-
-				resolveInterruptor(() => { })
-
-				toolResult = (await this._mcpService.callMCPTool({
-					serverName: mcpTool.mcpServerName ?? 'unknown_mcp_server',
-					toolName: toolName,
-					params: toolParams
-				})).result
+				this._addMessageToThread(threadId, {
+					role: 'tool', type: 'tool_request', content: '(Awaiting user permission...)',
+					result: null, name: toolName, params: rawParams, id, rawParams, mcpServerName: undefined,
+				});
+				this._setStreamState(threadId, { isRunning: 'awaiting_user' });
+				return; // wait for user action
 			}
 
-			if (interrupted) { return { interrupted: true } } // the tool result is added where we interrupt, not here
-		}
-		catch (error) {
-			resolveInterruptor(() => { }) // resolve for the sake of it
-			if (interrupted) { return { interrupted: true } } // the tool result is added where we interrupt, not here
+			// auto-approved or no approval needed
+			this._setStreamState(threadId, {
+				isRunning: 'tool',
+				interrupt: Promise.resolve(() => { }),
+				toolInfo: {
+					toolName, toolParams: {} as any, id: requirement.tool_execution.tool_call_id || tool_name,
+					content: 'running...', rawParams: {}, mcpServerName: undefined,
+				},
+			});
 
-			const errorMessage = getErrorMessage(error)
-			this._updateLatestTool(threadId, { role: 'tool', type: 'tool_error', params: toolParams, result: errorMessage, name: toolName, content: errorMessage, id: toolId, rawParams: opts.unvalidatedToolParams, mcpServerName })
-			return {}
+			const result = await this._toolExecutionService.executeToolRequirement(requirement);
+			toolResults.push(result);
+
+			this._addMessageToThread(threadId, {
+				role: 'tool', type: 'success', params: {} as any, result: result.content,
+				name: toolName, content: result.content, id: result.tool_call_id,
+				rawParams: {}, mcpServerName: undefined,
+			});
 		}
 
-		// 4. stringify the result to give to the LLM
-		try {
-			if (isBuiltInTool) {
-				toolResultStr = this._toolsService.stringOfResult[toolName](toolParams as any, toolResult as any)
-			}
-			// For MCP tools, handle the result based on its type
-			else {
-				toolResultStr = this._mcpService.stringifyResult(toolResult as RawMCPToolCall)
-			}
-		} catch (error) {
-			const errorMessage = this.toolErrMsgs.errWhenStringifying(error)
-			this._updateLatestTool(threadId, { role: 'tool', type: 'tool_error', params: toolParams, result: errorMessage, name: toolName, content: errorMessage, id: toolId, rawParams: opts.unvalidatedToolParams, mcpServerName })
-			return {}
+		// all tools executed, continue the run
+		this._continueAgnoRun(threadId, runId, toolResults);
+	}
+
+	private _pendingAgnoRequirements: {
+		[threadId: string]: { runId: string; requirements: AgnoToolRequirement[]; currentIndex: number } | undefined
+	} = {};
+
+	/**
+	 * Called when user approves a tool via the existing UI - bridges to Agno continue_run.
+	 */
+	private async _approveAgnoToolRequest(threadId: string): Promise<void> {
+		const pending = this._pendingAgnoRequirements[threadId];
+		if (!pending) return;
+
+		const { runId, requirements, currentIndex } = pending;
+		const requirement = requirements[currentIndex];
+		if (!requirement) return;
+
+		const result = await this._toolExecutionService.executeToolRequirement(requirement);
+		const toolName = requirement.tool_execution.tool_name as ToolName;
+
+		this._updateLatestTool(threadId, {
+			role: 'tool', type: 'success', params: {} as any, result: result.content,
+			name: toolName, content: result.content, id: result.tool_call_id,
+			rawParams: {}, mcpServerName: undefined,
+		});
+
+		// process remaining requirements
+		const remainingResults: AgnoToolResult[] = [result];
+		for (let i = currentIndex + 1; i < requirements.length; i++) {
+			const nextResult = await this._toolExecutionService.executeToolRequirement(requirements[i]);
+			remainingResults.push(nextResult);
 		}
 
-		// 5. add to history and keep going
-		this._updateLatestTool(threadId, { role: 'tool', type: 'success', params: toolParams, result: toolResult, name: toolName, content: toolResultStr, id: toolId, rawParams: opts.unvalidatedToolParams, mcpServerName })
-		return {}
-	};
+		delete this._pendingAgnoRequirements[threadId];
+		this._continueAgnoRun(threadId, runId, remainingResults);
+	}
 
+	private _continueAgnoRun(threadId: string, runId: string, toolResults: AgnoToolResult[]): void {
+		let fullText = '';
 
+		this._setStreamState(threadId, {
+			isRunning: 'LLM',
+			llmInfo: { displayContentSoFar: '', reasoningSoFar: '', toolCallSoFar: null },
+			interrupt: Promise.resolve(() => { runHandle?.abort(); }),
+		});
 
-
-	private async _runChatAgent({
-		threadId,
-		modelSelection,
-		modelSelectionOptions,
-		callThisToolFirst,
-	}: {
-		threadId: string,
-		modelSelection: ModelSelection | null,
-		modelSelectionOptions: ModelSelectionOptions | undefined,
-
-		callThisToolFirst?: ToolMessage<ToolName> & { type: 'tool_request' }
-	}) {
-
-
-		let interruptedWhenIdle = false
-		const idleInterruptor = Promise.resolve(() => { interruptedWhenIdle = true })
-		// _runToolCall does not need setStreamState({idle}) before it, but it needs it after it. (handles its own setStreamState)
-
-		// above just defines helpers, below starts the actual function
-		const { chatMode } = this._settingsService.state.globalSettings // should not change as we loop even if user changes it, so it goes here
-		const { overridesOfModel } = this._settingsService.state
-
-		let nMessagesSent = 0
-		let shouldSendAnotherMessage = true
-		let isRunningWhenEnd: IsRunningType = undefined
-
-		// before enter loop, call tool
-		if (callThisToolFirst) {
-			const { interrupted } = await this._runToolCall(threadId, callThisToolFirst.name, callThisToolFirst.id, callThisToolFirst.mcpServerName, { preapproved: true, unvalidatedToolParams: callThisToolFirst.rawParams, validatedParams: callThisToolFirst.params })
-			if (interrupted) {
-				this._setStreamState(threadId, undefined)
-				this._addUserCheckpoint({ threadId })
-
-			}
-		}
-		this._setStreamState(threadId, { isRunning: 'idle', interrupt: 'not_needed' })  // just decorative, for clarity
-
-
-		// tool use loop
-		while (shouldSendAnotherMessage) {
-			// false by default each iteration
-			shouldSendAnotherMessage = false
-			isRunningWhenEnd = undefined
-			nMessagesSent += 1
-
-			this._setStreamState(threadId, { isRunning: 'idle', interrupt: idleInterruptor })
-
-			const chatMessages = this.state.allThreads[threadId]?.messages ?? []
-			const { messages, separateSystemMessage } = await this._convertToLLMMessagesService.prepareLLMChatMessages({
-				chatMessages,
-				modelSelection,
-				chatMode
-			})
-
-			if (interruptedWhenIdle) {
-				this._setStreamState(threadId, undefined)
-				return
-			}
-
-			let shouldRetryLLM = true
-			let nAttempts = 0
-			while (shouldRetryLLM) {
-				shouldRetryLLM = false
-				nAttempts += 1
-
-				type ResTypes =
-					| { type: 'llmDone', toolCall?: RawToolCallObj, info: { fullText: string, fullReasoning: string, anthropicReasoning: AnthropicReasoning[] | null } }
-					| { type: 'llmError', error?: { message: string; fullError: Error | null; } }
-					| { type: 'llmAborted' }
-
-				let resMessageIsDonePromise: (res: ResTypes) => void // resolves when user approves this tool use (or if tool doesn't require approval)
-				const messageIsDonePromise = new Promise<ResTypes>((res, rej) => { resMessageIsDonePromise = res })
-
-				const llmCancelToken = this._llmMessageService.sendLLMMessage({
-					messagesType: 'chatMessages',
-					chatMode,
-					messages: messages,
-					modelSelection,
-					modelSelectionOptions,
-					overridesOfModel,
-					logging: { loggingName: `Chat - ${chatMode}`, loggingExtras: { threadId, nMessagesSent, chatMode } },
-					separateSystemMessage: separateSystemMessage,
-					onText: ({ fullText, fullReasoning, toolCall }) => {
-						this._setStreamState(threadId, { isRunning: 'LLM', llmInfo: { displayContentSoFar: fullText, reasoningSoFar: fullReasoning, toolCallSoFar: toolCall ?? null }, interrupt: Promise.resolve(() => { if (llmCancelToken) this._llmMessageService.abort(llmCancelToken) }) })
-					},
-					onFinalMessage: async ({ fullText, fullReasoning, toolCall, anthropicReasoning, }) => {
-						resMessageIsDonePromise({ type: 'llmDone', toolCall, info: { fullText, fullReasoning, anthropicReasoning } }) // resolve with tool calls
-					},
-					onError: async (error) => {
-						resMessageIsDonePromise({ type: 'llmError', error: error })
-					},
-					onAbort: () => {
-						// stop the loop to free up the promise, but don't modify state (already handled by whatever stopped it)
-						resMessageIsDonePromise({ type: 'llmAborted' })
-						this._metricsService.capture('Agent Loop Done (Aborted)', { nMessagesSent, chatMode })
-					},
-				})
-
-				// mark as streaming
-				if (!llmCancelToken) {
-					this._setStreamState(threadId, { isRunning: undefined, error: { message: 'There was an unexpected error when sending your chat message.', fullError: null } })
-					break
-				}
-
-				this._setStreamState(threadId, { isRunning: 'LLM', llmInfo: { displayContentSoFar: '', reasoningSoFar: '', toolCallSoFar: null }, interrupt: Promise.resolve(() => this._llmMessageService.abort(llmCancelToken)) })
-				const llmRes = await messageIsDonePromise // wait for message to complete
-
-				// if something else started running in the meantime
-				if (this.streamState[threadId]?.isRunning !== 'LLM') {
-					// console.log('Chat thread interrupted by a newer chat thread', this.streamState[threadId]?.isRunning)
-					return
-				}
-
-				// llm res aborted
-				if (llmRes.type === 'llmAborted') {
-					this._setStreamState(threadId, undefined)
-					return
-				}
-				// llm res error
-				else if (llmRes.type === 'llmError') {
-					// error, should retry
-					if (nAttempts < CHAT_RETRIES) {
-						shouldRetryLLM = true
-						this._setStreamState(threadId, { isRunning: 'idle', interrupt: idleInterruptor })
-						await timeout(RETRY_DELAY)
-						if (interruptedWhenIdle) {
-							this._setStreamState(threadId, undefined)
-							return
+		let runHandle: ReturnType<typeof this._agnoClientBridge.continueRun> | undefined;
+		runHandle = this._agnoClientBridge.continueRun({
+			agentId: 'acad-agent',
+			runId,
+			toolResults,
+			sessionId: threadId,
+			onEvent: async (event: AgnoStreamEvent) => {
+				switch (event.type) {
+					case 'text': {
+						fullText += event.content;
+						this._setStreamState(threadId, {
+							isRunning: 'LLM',
+							llmInfo: { displayContentSoFar: fullText, reasoningSoFar: '', toolCallSoFar: null },
+							interrupt: Promise.resolve(() => { runHandle?.abort(); }),
+						});
+						break;
+					}
+					case 'paused': {
+						if (fullText) {
+							this._addMessageToThread(threadId, { role: 'assistant', displayContent: fullText, reasoning: '', anthropicReasoning: null });
+							fullText = '';
 						}
-						else
-							continue // retry
+						await this._handleAgnoToolRequirements(threadId, event.runId, event.requirements);
+						break;
 					}
-					// error, but too many attempts
-					else {
-						const { error } = llmRes
-						const { displayContentSoFar, reasoningSoFar, toolCallSoFar } = this.streamState[threadId].llmInfo
-						this._addMessageToThread(threadId, { role: 'assistant', displayContent: displayContentSoFar, reasoning: reasoningSoFar, anthropicReasoning: null })
-						if (toolCallSoFar) this._addMessageToThread(threadId, { role: 'interrupted_streaming_tool', name: toolCallSoFar.name, mcpServerName: this._computeMCPServerOfToolName(toolCallSoFar.name) })
-
-						this._setStreamState(threadId, { isRunning: undefined, error })
-						this._addUserCheckpoint({ threadId })
-						return
+					case 'completed': {
+						if (event.fullText && !fullText) fullText = event.fullText;
+						if (fullText) {
+							this._addMessageToThread(threadId, { role: 'assistant', displayContent: fullText, reasoning: '', anthropicReasoning: null });
+						}
+						this._setStreamState(threadId, { isRunning: undefined });
+						this._addUserCheckpoint({ threadId });
+						break;
+					}
+					case 'error': {
+						if (fullText) {
+							this._addMessageToThread(threadId, { role: 'assistant', displayContent: fullText, reasoning: '', anthropicReasoning: null });
+						}
+						this._setStreamState(threadId, { isRunning: undefined, error: { message: event.message, fullError: null } });
+						this._addUserCheckpoint({ threadId });
+						break;
+					}
+					case 'cancelled': {
+						this._setStreamState(threadId, undefined);
+						break;
 					}
 				}
-
-				// llm res success
-				const { toolCall, info } = llmRes
-
-				this._addMessageToThread(threadId, { role: 'assistant', displayContent: info.fullText, reasoning: info.fullReasoning, anthropicReasoning: info.anthropicReasoning })
-
-				this._setStreamState(threadId, { isRunning: 'idle', interrupt: 'not_needed' }) // just decorative for clarity
-
-				// call tool if there is one
-				if (toolCall) {
-					const mcpTools = this._mcpService.getMCPTools()
-					const mcpTool = mcpTools?.find(t => t.name === toolCall.name)
-
-					const { awaitingUserApproval, interrupted } = await this._runToolCall(threadId, toolCall.name, toolCall.id, mcpTool?.mcpServerName, { preapproved: false, unvalidatedToolParams: toolCall.rawParams })
-					if (interrupted) {
-						this._setStreamState(threadId, undefined)
-						return
-					}
-					if (awaitingUserApproval) { isRunningWhenEnd = 'awaiting_user' }
-					else { shouldSendAnotherMessage = true }
-
-					this._setStreamState(threadId, { isRunning: 'idle', interrupt: 'not_needed' }) // just decorative, for clarity
-				}
-
-			} // end while (attempts)
-		} // end while (send message)
-
-		// if awaiting user approval, keep isRunning true, else end isRunning
-		this._setStreamState(threadId, { isRunning: isRunningWhenEnd })
-
-		// add checkpoint before the next user message
-		if (!isRunningWhenEnd) this._addUserCheckpoint({ threadId })
-
-		// capture number of messages sent
-		this._metricsService.capture('Agent Loop Done', { nMessagesSent, chatMode })
+			},
+		});
 	}
 
 
@@ -998,20 +950,6 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 			type: 'user_edit',
 			voidFileSnapshotOfURI: voidFileSnapshotOfURI ?? {},
 			userModifications: { voidFileSnapshotOfURI: {}, },
-		})
-	}
-	// call this right after LLM edits a file
-	private _addToolEditCheckpoint({ threadId, uri, }: { threadId: string, uri: URI }) {
-		const thread = this.state.allThreads[threadId]
-		if (!thread) return
-		const { model } = this._voidModelService.getModel(uri)
-		if (!model) return // should never happen
-		const diffAreasSnapshot = this._editCodeService.getVoidFileSnapshot(uri)
-		this._addCheckpoint(threadId, {
-			role: 'checkpoint',
-			type: 'tool_edit',
-			voidFileSnapshotOfURI: { [uri.fsPath]: diffAreasSnapshot },
-			userModifications: { voidFileSnapshotOfURI: {} },
 		})
 	}
 
@@ -1256,8 +1194,20 @@ We only need to do it for files that were edited since `from`, ie files between 
 
 		this._setThreadState(threadId, { currCheckpointIdx: null }) // no longer at a checkpoint because started streaming
 
+		if (!this._useAgnoBackend()) {
+			this._setStreamState(threadId, {
+				isRunning: undefined,
+				error: {
+					message: 'Agno obrigatório: habilite "useAgnoBackend" nas configurações do Acad.',
+					fullError: null,
+				},
+			});
+			this._addUserCheckpoint({ threadId });
+			return;
+		}
+
 		this._wrapRunAgentToNotify(
-			this._runChatAgent({ threadId, ...this._currentModelSelectionProps(), }),
+			this._runChatAgentViaAgno({ threadId }),
 			threadId,
 		)
 

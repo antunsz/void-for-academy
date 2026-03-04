@@ -367,19 +367,16 @@ export type ModelSelectionOfFeature = Record<(typeof featureNames)[number], Mode
 export type FeatureName = keyof ModelSelectionOfFeature
 
 export const displayInfoOfFeatureName = (featureName: FeatureName) => {
-	// editor:
 	if (featureName === 'Autocomplete')
-		return 'Autocomplete'
+		return 'Autocomplete LaTeX'
 	else if (featureName === 'Ctrl+K')
-		return 'Quick Edit'
-	// sidebar:
+		return 'Edição Rápida'
 	else if (featureName === 'Chat')
-		return 'Chat'
+		return 'Assistente'
 	else if (featureName === 'Apply')
-		return 'Apply'
-	// source control:
+		return 'Aplicar Edições'
 	else if (featureName === 'SCM')
-		return 'Commit Message Generator'
+		return 'Resumo de Versão'
 	else
 		throw new Error(`Feature Name ${featureName} not allowed`)
 }
@@ -437,6 +434,47 @@ export const isFeatureNameDisabled = (featureName: FeatureName, settingsState: V
 
 export type ChatMode = 'agent' | 'gather' | 'normal'
 
+export type AcademicWorkType = 'tcc' | 'dissertacao' | 'tese'
+export type AcademicNorm = 'abnt'
+
+// Acad backend entity definitions
+export type AcadEntityKind = 'agent' | 'team' | 'workflow'
+
+export type AcadEntityInfo = {
+	id: string;
+	kind: AcadEntityKind;
+	name: string;
+	role: string;
+}
+
+export const acadEntities: AcadEntityInfo[] = [
+	// Agents
+	{ id: 'acad-agent', kind: 'agent', name: 'AcadAgent', role: 'Assistente acadêmico completo' },
+	{ id: 'writer-agent', kind: 'agent', name: 'Escritor', role: 'Redação acadêmica' },
+	{ id: 'reviewer-agent', kind: 'agent', name: 'Revisor', role: 'Revisão de textos' },
+	{ id: 'abnt-agent', kind: 'agent', name: 'ABNT', role: 'Normas ABNT' },
+	{ id: 'references-agent', kind: 'agent', name: 'Referências', role: 'Referências bibliográficas' },
+	// Team
+	{ id: 'acad-team', kind: 'team', name: 'Time Acad', role: 'Colaboração multi-agente' },
+	// Workflows
+	{ id: 'write-chapter', kind: 'workflow', name: 'Escrever Capítulo', role: 'Pipeline de escrita' },
+	{ id: 'full-review', kind: 'workflow', name: 'Revisão Completa', role: 'Pipeline de revisão' },
+	{ id: 'references-management', kind: 'workflow', name: 'Gerenciar Referências', role: 'Pipeline de referências' },
+]
+
+export const acadAgentEntities = acadEntities.filter(e => e.kind === 'agent')
+
+export type AcadAgentId = string
+
+export type AgentModelSelection = {
+	provider: string;
+	modelId: string;
+}
+
+export type AgentModelSelections = {
+	[agentId: string]: AgentModelSelection | null;
+}
+
 
 export type GlobalSettings = {
 	autoRefreshModels: boolean;
@@ -452,6 +490,17 @@ export type GlobalSettings = {
 	isOnboardingComplete: boolean;
 	disableSystemMessage: boolean;
 	autoAcceptLLMChanges: boolean;
+	academicWorkType: AcademicWorkType;
+	academicNorm: AcademicNorm;
+	institutionName: string;
+	programName: string;
+	latexCompiler: string;
+	// Agno backend settings
+	useAgnoBackend: boolean;
+	agnoBackendUrl: string;
+	agentModelSelections: AgentModelSelections;
+	selectedAcadEntity: string; // id of the selected agent/team/workflow
+	agnoVerbose: boolean; // show Agno agent debug output in chat
 }
 
 export const defaultGlobalSettings: GlobalSettings = {
@@ -468,6 +517,16 @@ export const defaultGlobalSettings: GlobalSettings = {
 	isOnboardingComplete: false,
 	disableSystemMessage: false,
 	autoAcceptLLMChanges: false,
+	academicWorkType: 'tcc',
+	academicNorm: 'abnt',
+	institutionName: '',
+	programName: '',
+	latexCompiler: 'latexmk',
+	useAgnoBackend: true,
+	agnoBackendUrl: 'http://127.0.0.1:7777',
+	agentModelSelections: {},
+	selectedAcadEntity: 'acad-agent',
+	agnoVerbose: false,
 }
 
 export type GlobalSettingName = keyof GlobalSettings

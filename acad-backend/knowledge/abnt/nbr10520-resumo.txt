@@ -1,0 +1,54 @@
+ABNT NBR 10520 - Informação e documentação - Citações - Apresentação
+
+RESUMO DAS PRINCIPAIS REGRAS:
+
+1. TIPOS DE CITAÇÃO
+
+1.1 Citação direta curta (até 3 linhas):
+- Incorporada ao texto entre aspas duplas
+- Formato: "texto citado" (SOBRENOME, ano, p. XX)
+- Ou: Conforme Sobrenome (ano, p. XX), "texto citado"
+
+1.2 Citação direta longa (mais de 3 linhas):
+- Em parágrafo separado com recuo de 4 cm da margem esquerda
+- Fonte tamanho 10, espaçamento simples
+- Sem aspas
+- Referência ao final: (SOBRENOME, ano, p. XX)
+
+1.3 Citação indireta (paráfrase):
+- Texto baseado na obra do autor, com suas próprias palavras
+- Não usa aspas
+- Formato: Conforme Sobrenome (ano), texto parafraseado.
+- Ou: texto parafraseado (SOBRENOME, ano).
+- Indicação de página é opcional, mas recomendada
+
+1.4 Citação de citação (apud):
+- Quando se cita um autor a partir de outro
+- Formato: Sobrenome1 (ano1 apud SOBRENOME2, ano2, p. XX)
+- Nas referências, incluir apenas a obra consultada (Sobrenome2)
+- Usar com moderação; preferir a fonte original
+
+2. SISTEMAS DE CHAMADA
+
+2.1 Sistema autor-data (mais usado):
+- No texto: Sobrenome (ano) ou (SOBRENOME, ano)
+- Dentro de parênteses: sobrenome em MAIÚSCULAS
+- Fora de parênteses: apenas inicial maiúscula
+
+2.2 Sistema numérico:
+- Número entre parênteses ou sobrescrito
+- Numeração sequencial ao longo do texto
+
+3. REGRAS ESPECIAIS
+
+3.1 Dois autores: (SOBRENOME1; SOBRENOME2, ano)
+3.2 Três autores: (SOBRENOME1; SOBRENOME2; SOBRENOME3, ano)
+3.3 Mais de três: (SOBRENOME1 et al., ano)
+3.4 Autor institucional: (NOME DA INSTITUIÇÃO, ano)
+3.5 Sem autoria: primeira palavra do título em maiúsculas entre aspas
+
+4. SUPRESSÕES E INTERPOLAÇÕES
+
+- [...] para suprimir parte do texto citado
+- [ ] para acréscimos ou comentários do autor
+- (grifo nosso) ou (grifo do autor) para destaques

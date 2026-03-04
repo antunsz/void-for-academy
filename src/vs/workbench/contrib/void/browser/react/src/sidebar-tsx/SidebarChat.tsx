@@ -18,7 +18,7 @@ import { ModelDropdown, } from '../void-settings-tsx/ModelDropdown.js';
 import { PastThreadsList } from './SidebarThreadSelector.js';
 import { VOID_CTRL_L_ACTION_ID } from '../../../actionIDs.js';
 import { VOID_OPEN_SETTINGS_ACTION_ID } from '../../../voidSettingsPane.js';
-import { ChatMode, displayInfoOfProviderName, FeatureName, isFeatureNameDisabled } from '../../../../../../../workbench/contrib/void/common/voidSettingsTypes.js';
+import { ChatMode, displayInfoOfProviderName, FeatureName, isFeatureNameDisabled, acadEntities, AcadEntityInfo } from '../../../../../../../workbench/contrib/void/common/voidSettingsTypes.js';
 import { ICommandService } from '../../../../../../../platform/commands/common/commands.js';
 import { WarningBox } from '../void-settings-tsx/WarningBox.js';
 import { getModelCapabilities, getIsReasoningEnabledState } from '../../../../common/modelCapabilities.js';
@@ -248,15 +248,15 @@ const ReasoningOptionSlider = ({ featureName }: { featureName: FeatureName }) =>
 
 
 const nameOfChatMode = {
-	'normal': 'Chat',
-	'gather': 'Gather',
-	'agent': 'Agent',
+	'normal': 'Redação',
+	'gather': 'Pesquisa',
+	'agent': 'Completo',
 }
 
 const detailOfChatMode = {
-	'normal': 'Normal chat',
-	'gather': 'Reads files, but can\'t edit',
-	'agent': 'Edits files and uses tools',
+	'normal': 'Assistente de redação acadêmica',
+	'gather': 'Lê documentos, analisa estrutura',
+	'agent': 'Edita, formata, compila e gerencia referências',
 }
 
 
@@ -286,6 +286,51 @@ const ChatModeDropdown = ({ className }: { className: string }) => {
 }
 
 
+const AgnoVerboseToggle = () => {
+	const accessor = useAccessor()
+	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const settingsState = useSettingsState()
+	const isVerbose = settingsState.globalSettings.agnoVerbose ?? false
+
+	return (
+		<button
+			onClick={() => voidSettingsService.setGlobalSetting('agnoVerbose', !isVerbose)}
+			className={`text-xs px-1.5 py-0.5 rounded border transition-colors ${isVerbose
+				? 'text-[#0e70c0] border-[#0e70c0]/50 bg-[#0e70c0]/10'
+				: 'text-void-fg-3 border-void-border-2 bg-void-bg-1 hover:text-void-fg-2'
+				}`}
+			title={isVerbose ? 'Debug Agno: Ativo' : 'Debug Agno: Desativado'}
+		>
+			Debug
+		</button>
+	)
+}
+
+const kindLabel: Record<string, string> = { agent: 'Agente', team: 'Time', workflow: 'Workflow' }
+
+const AcadEntitySelector = ({ className }: { className: string }) => {
+	const accessor = useAccessor()
+	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const settingsState = useSettingsState()
+
+	const selectedId = settingsState.globalSettings.selectedAcadEntity || 'acad-agent'
+	const selectedEntity = acadEntities.find(e => e.id === selectedId) ?? acadEntities[0]
+
+	const onChangeOption = useCallback((entity: AcadEntityInfo) => {
+		voidSettingsService.setGlobalSetting('selectedAcadEntity', entity.id)
+	}, [voidSettingsService])
+
+	return <VoidCustomDropdownBox
+		className={className}
+		options={acadEntities}
+		selectedOption={selectedEntity}
+		onChangeOption={onChangeOption}
+		getOptionDisplayName={(e) => e.name}
+		getOptionDropdownName={(e) => e.name}
+		getOptionDropdownDetail={(e) => `${kindLabel[e.kind]} · ${e.role}`}
+		getOptionsEqual={(a, b) => a.id === b.id}
+	/>
+}
 
 
 
@@ -388,7 +433,11 @@ export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
 
 						<div className='flex items-center flex-wrap gap-x-2 gap-y-1 text-nowrap '>
 							{featureName === 'Chat' && <ChatModeDropdown className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />}
-							<ModelDropdown featureName={featureName} className='text-xs text-void-fg-3 bg-void-bg-1 rounded' />
+							{featureName === 'Chat'
+								? <AcadEntitySelector className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />
+								: <ModelDropdown featureName={featureName} className='text-xs text-void-fg-3 bg-void-bg-1 rounded' />
+							}
+							{featureName === 'Chat' && <AgnoVerboseToggle />}
 						</div>
 					</div>
 				)}
@@ -3078,7 +3127,7 @@ export const SidebarChat = () => {
 		<VoidInputBox2
 			enableAtToMention
 			className={`min-h-[81px] px-0.5 py-0.5`}
-			placeholder={`@ to mention, ${keybindingString ? `${keybindingString} to add a selection. ` : ''}Enter instructions...`}
+			placeholder={`@ para mencionar, ${keybindingString ? `${keybindingString} para adicionar seleção. ` : ''}Pergunte sobre seu trabalho acadêmico...`}
 			onChangeText={onChangeText}
 			onKeyDown={onKeyDown}
 			onFocus={() => { chatThreadsService.setCurrentlyFocusedMessageIdx(undefined) }}
@@ -3095,9 +3144,11 @@ export const SidebarChat = () => {
 
 	const initiallySuggestedPromptsHTML = <div className='flex flex-col gap-2 w-full text-nowrap text-void-fg-3 select-none'>
 		{[
-			'Summarize my codebase',
-			'How do types work in Rust?',
-			'Create a .voidrules file for me'
+			'Gerar estrutura de TCC com ABNT',
+			'Revisar a seção atual do documento',
+			'Formatar referências bibliográficas em ABNT',
+			'Compilar documento LaTeX',
+			'Verificar conformidade com normas ABNT'
 		].map((text, index) => (
 			<div
 				key={index}
@@ -3136,12 +3187,12 @@ export const SidebarChat = () => {
 
 		{Object.keys(chatThreadsState.allThreads).length > 1 ? // show if there are threads
 			<ErrorBoundary>
-				<div className='pt-8 mb-2 text-void-fg-3 text-root select-none pointer-events-none'>Previous Threads</div>
+				<div className='pt-8 mb-2 text-void-fg-3 text-root select-none pointer-events-none'>Conversas Anteriores</div>
 				<PastThreadsList />
 			</ErrorBoundary>
 			:
 			<ErrorBoundary>
-				<div className='pt-8 mb-2 text-void-fg-3 text-root select-none pointer-events-none'>Suggestions</div>
+				<div className='pt-8 mb-2 text-void-fg-3 text-root select-none pointer-events-none'>Sugestões</div>
 				{initiallySuggestedPromptsHTML}
 			</ErrorBoundary>
 		}

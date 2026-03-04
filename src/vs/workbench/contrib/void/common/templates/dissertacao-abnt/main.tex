@@ -1,0 +1,194 @@
+% ============================================================================
+% Template Dissertação de Mestrado - Normas ABNT (NBR 14724)
+% Gerado pelo Acad - Editor Acadêmico com IA
+% ============================================================================
+\documentclass[
+    12pt,
+    oneside,
+    a4paper,
+    chapter=TITLE,
+    section=TITLE,
+    english,
+    brazil
+]{abntex2}
+
+% --- Pacotes fundamentais ---
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{indentfirst}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{microtype}
+
+% --- Pacotes adicionais ---
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{algorithm2e}
+
+% --- Pacotes de citações ---
+\usepackage[brazilian,hyperpageref]{backref}
+\usepackage[alf]{abntex2cite}
+
+% --- Configurações do backref ---
+\renewcommand{\backrefpagesname}{Citado na(s) página(s):~}
+\renewcommand{\backref}{}
+\renewcommand*{\backrefalt}[4]{
+    \ifcase #1
+        Nenhuma citação no texto.
+    \or
+        Citado na página #2.
+    \else
+        Citado #1 vezes nas páginas #2.
+    \fi
+}
+
+% ============================================================================
+% INFORMAÇÕES DO DOCUMENTO
+% ============================================================================
+\titulo{Título da Dissertação de Mestrado}
+\autor{Nome Completo do Autor}
+\local{Cidade}
+\data{2025}
+\orientador{Prof. Dr. Nome do Orientador}
+% \coorientador{Prof. Dr. Nome do Coorientador}
+\instituicao{%
+    Nome da Universidade
+    \par
+    Nome do Instituto ou Faculdade
+    \par
+    Programa de Pós-Graduação em Área
+}
+\tipotrabalho{Dissertação (Mestrado)}
+\preambulo{Dissertação apresentada ao Programa de Pós-Graduação em
+[Área] da [Nome da Universidade], como requisito parcial para
+obtenção do título de Mestre em [Área].}
+
+% --- Configurações de aparência do PDF final ---
+\makeatletter
+\hypersetup{
+    pdftitle={\@title},
+    pdfauthor={\@author},
+    pdfsubject={\imprimirpreambulo},
+    pdfcreator={LaTeX com abnTeX2 - Acad},
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    filecolor=magenta,
+    urlcolor=blue,
+    bookmarksdepth=4
+}
+\makeatother
+
+\setlength{\parindent}{1.3cm}
+\setlength{\parskip}{0.2cm}
+
+% ============================================================================
+\begin{document}
+
+\selectlanguage{brazil}
+\frenchspacing
+
+\pretextual
+
+\imprimircapa
+\imprimirfolhaderosto*
+
+% Ficha catalográfica (obrigatória)
+% \begin{fichacatalografica}
+% Inserir ficha catalográfica gerada pela biblioteca
+% \end{fichacatalografica}
+
+% Folha de aprovação (obrigatória)
+\begin{folhadeaprovacao}
+\begin{center}
+    {\ABNTEXchapterfont\large\imprimirautor}
+    \vspace*{\fill}\vspace*{\fill}
+    \begin{center}
+        \ABNTEXchapterfont\bfseries\Large\imprimirtitulo
+    \end{center}
+    \vspace*{\fill}
+    \hspace{.45\textwidth}
+    \begin{minipage}{.5\textwidth}
+        \imprimirpreambulo
+    \end{minipage}%
+    \vspace*{\fill}
+\end{center}
+
+Trabalho aprovado. \imprimirlocal, \imprimirdata:
+
+\assinatura{\textbf{\imprimirorientador} \\ Orientador}
+\assinatura{\textbf{Prof. Dr. Membro 1} \\ Membro da Banca}
+\assinatura{\textbf{Prof. Dr. Membro 2} \\ Membro da Banca}
+
+\begin{center}
+    \vspace*{0.5cm}
+    \imprimirlocal \\
+    \imprimirdata
+\end{center}
+\end{folhadeaprovacao}
+
+\begin{dedicatoria}
+   \vspace*{\fill}
+   \centering
+   \noindent
+   \textit{Dedico este trabalho...}
+   \vspace*{\fill}
+\end{dedicatoria}
+
+\begin{agradecimentos}
+Agradeço...
+\end{agradecimentos}
+
+\begin{epigrafe}
+    \vspace*{\fill}
+    \begin{citacao}
+        ``Texto da epígrafe.'' \par (Autor)
+    \end{citacao}
+\end{epigrafe}
+
+\setlength{\absparsep}{18pt}
+\begin{resumo}
+Inserir o resumo aqui.
+
+\textbf{Palavras-chave}: Palavra 1. Palavra 2. Palavra 3. Palavra 4. Palavra 5.
+\end{resumo}
+
+\begin{resumo}[Abstract]
+\begin{otherlanguage*}{english}
+Insert abstract here.
+
+\textbf{Keywords}: Keyword 1. Keyword 2. Keyword 3. Keyword 4. Keyword 5.
+\end{otherlanguage*}
+\end{resumo}
+
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
+
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+\textual
+
+\include{capitulos/01-introducao}
+\include{capitulos/02-referencial-teorico}
+\include{capitulos/03-trabalhos-relacionados}
+\include{capitulos/04-metodologia}
+\include{capitulos/05-proposta}
+\include{capitulos/06-resultados}
+\include{capitulos/07-conclusao}
+
+\postextual
+
+\bibliography{referencias}
+
+\end{document}

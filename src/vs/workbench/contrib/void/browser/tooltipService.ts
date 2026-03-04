@@ -10,6 +10,8 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { mountVoidTooltip } from './react/out/void-tooltip/index.js';
 import { h, getActiveWindow } from '../../../../base/browser/dom.js';
 
+export const voidTooltipMountRef = { current: mountVoidTooltip };
+
 // Tooltip contribution that mounts the component at startup
 export class TooltipContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'workbench.contrib.voidTooltip';
@@ -22,32 +24,50 @@ export class TooltipContribution extends Disposable implements IWorkbenchContrib
 	}
 
 	private initializeTooltip(): void {
-		// Get the active window reference for multi-window support
 		const targetWindow = getActiveWindow();
+		let retryHandle: number | undefined;
+		let attempts = 0;
+		const maxAttempts = 200;
 
-		// Find the monaco-workbench element using the proper window reference
-		const workbench = targetWindow.document.querySelector('.monaco-workbench');
+		const tryMount = () => {
+			const workbench = targetWindow.document.querySelector('.monaco-workbench');
+			if (!workbench) {
+				if (attempts < maxAttempts) {
+					attempts += 1;
+					retryHandle = targetWindow.setTimeout(tryMount, 50);
+				}
+				return;
+			}
 
-		if (workbench) {
-			// Create a container element for the tooltip using h function
+			retryHandle = undefined;
 			const tooltipContainer = h('div.void-tooltip-container').root;
 			workbench.appendChild(tooltipContainer);
 
-			// Mount the React component
-			this.instantiationService.invokeFunction((accessor: ServicesAccessor) => {
-				const result = mountVoidTooltip(tooltipContainer, accessor);
-				if (result && typeof result.dispose === 'function') {
-					this._register(toDisposable(result.dispose));
-				}
-			});
+			try {
+				this.instantiationService.invokeFunction((accessor: ServicesAccessor) => {
+					const result = voidTooltipMountRef.current(tooltipContainer, accessor);
+					if (result && typeof result.dispose === 'function') {
+						this._register(toDisposable(result.dispose));
+					}
+				});
+			} catch (error) {
+				console.error('Void tooltip mount failed', error);
+				tooltipContainer.textContent = 'Acad: falha ao renderizar.';
+			}
 
-			// Register cleanup for the DOM element
 			this._register(toDisposable(() => {
 				if (tooltipContainer.parentElement) {
 					tooltipContainer.parentElement.removeChild(tooltipContainer);
 				}
 			}));
-		}
+		};
+
+		tryMount();
+		this._register(toDisposable(() => {
+			if (retryHandle !== undefined) {
+				targetWindow.clearTimeout(retryHandle);
+			}
+		}));
 	}
 }
 

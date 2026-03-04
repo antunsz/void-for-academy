@@ -12,7 +12,7 @@ export default () => `
 	<div class="theme-picker-row">
 		<checkbox when-checked="setTheme:${ThemeSettingDefaults.COLOR_THEME_DARK}" checked-on="config.workbench.colorTheme == '${ThemeSettingDefaults.COLOR_THEME_DARK}'">
 			<img width="200" src="./dark.png"/>
-			${escape(localize('dark', "Dark Modern"))}
+			${escape(localize('dark', "Acad Dark"))}
 		</checkbox>
 		<checkbox when-checked="setTheme:${ThemeSettingDefaults.COLOR_THEME_LIGHT}" checked-on="config.workbench.colorTheme == '${ThemeSettingDefaults.COLOR_THEME_LIGHT}'">
 			<img width="200" src="./light.png"/>

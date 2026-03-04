@@ -1,0 +1,194 @@
+% ============================================================================
+% Template TCC de Graduação - Normas ABNT (NBR 14724)
+% Gerado pelo Acad - Editor Acadêmico com IA
+% ============================================================================
+\documentclass[
+    12pt,
+    oneside,
+    a4paper,
+    chapter=TITLE,
+    section=TITLE,
+    english,
+    brazil
+]{abntex2}
+
+% --- Pacotes fundamentais ---
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{indentfirst}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{microtype}
+
+% --- Pacotes adicionais ---
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{hyperref}
+
+% --- Pacotes de citações ---
+\usepackage[brazilian,hyperpageref]{backref}
+\usepackage[alf]{abntex2cite}
+
+% --- Configurações do backref ---
+\renewcommand{\backrefpagesname}{Citado na(s) página(s):~}
+\renewcommand{\backref}{}
+\renewcommand*{\backrefalt}[4]{
+    \ifcase #1
+        Nenhuma citação no texto.
+    \or
+        Citado na página #2.
+    \else
+        Citado #1 vezes nas páginas #2.
+    \fi
+}
+
+% ============================================================================
+% INFORMAÇÕES DO DOCUMENTO
+% ============================================================================
+\titulo{Título do Trabalho de Conclusão de Curso}
+\autor{Nome Completo do Autor}
+\local{Cidade}
+\data{2025}
+\orientador{Prof. Dr. Nome do Orientador}
+% \coorientador{Prof. Dr. Nome do Coorientador} % Descomente se houver
+\instituicao{%
+    Nome da Universidade
+    \par
+    Nome da Faculdade ou Instituto
+    \par
+    Nome do Curso de Graduação
+}
+\tipotrabalho{Trabalho de Conclusão de Curso (Graduação)}
+\preambulo{Trabalho de Conclusão de Curso apresentado ao Curso de
+[Nome do Curso] da [Nome da Universidade], como requisito parcial
+para obtenção do grau de [Bacharel/Licenciado] em [Nome do Curso].}
+
+% --- Configurações de aparência do PDF final ---
+\makeatletter
+\hypersetup{
+    pdftitle={\@title},
+    pdfauthor={\@author},
+    pdfsubject={\imprimirpreambulo},
+    pdfcreator={LaTeX com abnTeX2 - Acad},
+    pdfkeywords={abnt}{latex}{abntex}{abntex2}{trabalho acadêmico},
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    filecolor=magenta,
+    urlcolor=blue,
+    bookmarksdepth=4
+}
+\makeatother
+
+% --- Espaçamentos entre linhas e parágrafos ---
+\setlength{\parindent}{1.3cm}
+\setlength{\parskip}{0.2cm}
+
+% ============================================================================
+% INÍCIO DO DOCUMENTO
+% ============================================================================
+\begin{document}
+
+\selectlanguage{brazil}
+\frenchspacing
+
+% --- ELEMENTOS PRÉ-TEXTUAIS ---
+\pretextual
+
+% Capa
+\imprimircapa
+
+% Folha de rosto
+\imprimirfolhaderosto*
+
+% Dedicatória (opcional)
+\begin{dedicatoria}
+   \vspace*{\fill}
+   \centering
+   \noindent
+   \textit{Dedico este trabalho...}
+   \vspace*{\fill}
+\end{dedicatoria}
+
+% Agradecimentos (opcional)
+\begin{agradecimentos}
+Agradeço primeiramente...
+\end{agradecimentos}
+
+% Epígrafe (opcional)
+\begin{epigrafe}
+    \vspace*{\fill}
+    \begin{citacao}
+        ``Texto da epígrafe.''
+        \par
+        (Autor da Epígrafe)
+    \end{citacao}
+\end{epigrafe}
+
+% Resumo em português (obrigatório - NBR 6028)
+\setlength{\absparsep}{18pt}
+\begin{resumo}
+Inserir o resumo aqui. O resumo deve apresentar de forma concisa os pontos
+relevantes do trabalho, abordando objetivo, método, resultados e conclusões.
+Deve conter entre 150 e 500 palavras e ser redigido em parágrafo único.
+
+\textbf{Palavras-chave}: Palavra-chave 1. Palavra-chave 2. Palavra-chave 3.
+\end{resumo}
+
+% Resumo em inglês (obrigatório - NBR 6028)
+\begin{resumo}[Abstract]
+\begin{otherlanguage*}{english}
+Insert abstract here. The abstract should concisely present the relevant
+points of the work, covering objective, method, results, and conclusions.
+It should contain between 150 and 500 words in a single paragraph.
+
+\textbf{Keywords}: Keyword 1. Keyword 2. Keyword 3.
+\end{otherlanguage*}
+\end{resumo}
+
+% Lista de figuras (opcional)
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+
+% Lista de tabelas (opcional)
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
+
+% Sumário (obrigatório)
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% --- ELEMENTOS TEXTUAIS ---
+\textual
+
+\include{capitulos/01-introducao}
+\include{capitulos/02-fundamentacao}
+\include{capitulos/03-metodologia}
+\include{capitulos/04-resultados}
+\include{capitulos/05-conclusao}
+
+% --- ELEMENTOS PÓS-TEXTUAIS ---
+\postextual
+
+% Referências bibliográficas (obrigatório)
+\bibliography{referencias}
+
+% Apêndices (opcional)
+% \begin{apendicesenv}
+% \partapendices
+% \include{capitulos/apendice-a}
+% \end{apendicesenv}
+
+% Anexos (opcional)
+% \begin{anexosenv}
+% \partanexos
+% \include{capitulos/anexo-a}
+% \end{anexosenv}
+
+\end{document}

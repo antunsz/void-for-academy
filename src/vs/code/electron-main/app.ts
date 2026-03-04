@@ -133,6 +133,8 @@ import { LLMMessageChannel } from '../../workbench/contrib/void/electron-main/se
 import { VoidSCMService } from '../../workbench/contrib/void/electron-main/voidSCMMainService.js';
 import { IVoidSCMService } from '../../workbench/contrib/void/common/voidSCMTypes.js';
 import { MCPChannel } from '../../workbench/contrib/void/electron-main/mcpChannel.js';
+import { IAgnoBackendLifecycleService, AgnoBackendLifecycleService } from '../../workbench/contrib/void/electron-main/agnoBackendLifecycleService.js';
+import { AgnoBackendChannel } from '../../workbench/contrib/void/electron-main/agnoBackendChannel.js';
 /**
  * The main VS Code application. There will only ever be one instance,
  * even if the user starts many instances (e.g. from the command line).
@@ -1105,6 +1107,7 @@ export class CodeApplication extends Disposable {
 		services.set(IMetricsService, new SyncDescriptor(MetricsMainService, undefined, false));
 		services.set(IVoidUpdateService, new SyncDescriptor(VoidMainUpdateService, undefined, false));
 		services.set(IVoidSCMService, new SyncDescriptor(VoidSCMService, undefined, false));
+		services.set(IAgnoBackendLifecycleService, new SyncDescriptor(AgnoBackendLifecycleService, undefined, false));
 
 		// Default Extensions Profile Init
 		services.set(IExtensionsProfileScannerService, new SyncDescriptor(ExtensionsProfileScannerService, undefined, true));
@@ -1253,6 +1256,14 @@ export class CodeApplication extends Disposable {
 		// Void added this
 		const mcpChannel = new MCPChannel();
 		mainProcessElectronServer.registerChannel('void-channel-mcp', mcpChannel);
+
+		// Agno backend lifecycle – auto-starts the Python AgentOS process
+		const agnoBackendService = accessor.get(IAgnoBackendLifecycleService);
+		const agnoBackendChannel = new AgnoBackendChannel(agnoBackendService);
+		mainProcessElectronServer.registerChannel('void-channel-agno-backend', agnoBackendChannel);
+		agnoBackendService.start().catch(err => {
+			this.logService.error('[AgnoBackend] Auto-start failed:', err);
+		});
 
 		// Extension Host Debug Broadcasting
 		const electronExtensionHostDebugBroadcastChannel = new ElectronExtensionHostDebugBroadcastChannel(accessor.get(IWindowsMainService));
